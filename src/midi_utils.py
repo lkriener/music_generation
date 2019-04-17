@@ -1,3 +1,5 @@
+import copy 
+import random as r
 import numpy as np
 import py_midicsv as midi
 
@@ -200,4 +202,59 @@ def track_dict_to_csv(track_dict):
                 csv_list.append(elem)
     csv_list.append(track_dict['0'][-1])
     return csv_list
-            
+ 
+def find_lead_track(track_dict, random=True, largest_range=False, variation=False, rhythm=False):
+    # determine the lead track using chosen criterions
+    # Remove Header track because it is not really a track which contains music
+    new_track_dict = copy.deepcopy(track_dict)
+    del new_track_dict['0']
+    key_list = list(new_track_dict.keys())
+    print(key_list)
+    num_tracks = len(key_list)
+    # if criterion random is active all others are ignored
+    if random:
+        nr = r.randint(0, num_tracks-1)
+        return key_list[nr]
+    scores = [0]*num_tracks
+    numpy_tracks = []
+    for key in key_list:
+        numpy_track = midi_track_to_numpy(new_track_dict[key])
+        numpy_tracks.append(numpy_track)
+    # largest_range choses the track with highes difference between lowest and highest note
+    if largest_range:
+        ranges = []
+        for n_track in numpy_tracks:
+            min_note = np.amin(n_track, axis=0)[0]
+            max_note = np.amax(n_track, axis=0)[0]
+            ranges.append(max_note - min_note)
+        track_idx = np.argmax(ranges)
+        scores[track_idx] += 1
+        print('Note range:', ranges)
+    # find the track with the most different notes
+    if variation:
+        num_diff_notes = []
+        for n_track in numpy_tracks:
+            n_diffs = len(np.unique(n_track[:,0]))
+            num_diff_notes.append(n_diffs)
+        track_idx = np.argmax(num_diff_notes)
+        print('Number of different notes:', num_diff_notes)
+        scores[track_idx] += 1
+    # find the track with the most different note lengths indicating most rhythm
+    if rhythm:
+        num_diff_lengths = []
+        for n_track in numpy_tracks:
+            n_diffs = len(np.unique(n_track[:,1]))
+            num_diff_lengths.append(n_diffs)
+        track_idx = np.argmax(num_diff_lengths)
+        print('Number of different lengths:', num_diff_lengths)
+        scores[track_idx] += 1
+    # find the track with the highest score, if tied -> choose randomly
+    winners = np.argwhere(scores == np.amax(scores))
+    print('Scores:', scores)
+    if len(winners) == 0:
+        return key_list[winners[0]]
+    else:
+        winner = r.randint(0, len(winners)-1)
+        return key_list[winner]
+    
+        
