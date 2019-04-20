@@ -209,7 +209,7 @@ def find_lead_track(track_dict, random=True, largest_range=False, variation=Fals
     new_track_dict = copy.deepcopy(track_dict)
     del new_track_dict['0']
     key_list = list(new_track_dict.keys())
-    print(key_list)
+    print('track_nrs:', key_list)
     num_tracks = len(key_list)
     # if criterion random is active all others are ignored
     if random:
@@ -257,4 +257,14 @@ def find_lead_track(track_dict, random=True, largest_range=False, variation=Fals
         winner = r.randint(0, len(winners)-1)
         return key_list[winner]
     
-        
+def get_mean_pitch(numpy_track):
+    # return the mean pitch (rounded to integer, i.e. real note)
+    mean_pitch = np.mean(numpy_track, axis=0)[0]
+    return np.around(mean_pitch)
+
+def shift_track_pitch(numpy_track, delta_pitch):
+    # shift the pitch of the notes in the track by given delta
+    mask = np.reshape([1,0]*len(numpy_track), (len(numpy_track), 2)) * delta_pitch
+    new_track = numpy_track + mask
+    return new_track
+    
