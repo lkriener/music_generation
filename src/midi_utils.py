@@ -1,11 +1,13 @@
-import copy 
+import copy
 import random as r
 import numpy as np
 import py_midicsv as midi
 
+
 def load_to_csv(filepath):
     s = midi.midi_to_csv(filepath)
     return s
+
 
 def split_tracks(csv_string):
     # first number in each line is the track number
@@ -20,6 +22,7 @@ def split_tracks(csv_string):
         else:
             tracks[channel] = [line]
     return tracks
+
 
 def get_bpm(csv_string):
     # assume no tempo changes in file
@@ -38,8 +41,9 @@ def get_bpm(csv_string):
     # midi default tempo: 500000 microseconds per quarter note
     if default:
         val = 500000
-    bpm = 1./val * 1e6 * 60
+    bpm = 1. / val * 1e6 * 60
     return bpm, default
+
 
 def get_ticks_per_quarter(csv_string):
     # how many midi-timesteps are one quarter note
@@ -59,6 +63,7 @@ def get_ticks_per_quarter(csv_string):
             break
     return ticks, default
 
+
 def replace_int_in_line(line, pos, new_val):
     # replace an int-value in a csv line at pos with a new value
     split_line = [x.strip() for x in line.split(',')]
@@ -70,6 +75,7 @@ def replace_int_in_line(line, pos, new_val):
     new_line += split_line[-1]
     new_line += '\n'
     return new_line
+
 
 def reduce_to_single_track(filename, new_filename, tracknr):
     # can be used to make file monophonic if the tracknr of the track 
@@ -88,16 +94,17 @@ def reduce_to_single_track(filename, new_filename, tracknr):
         new_csv.append(elem)
     new_csv.append(track_dict['0'][-1])
     # write new csv to disc
-    with open(new_filename[:-4]+'.csv', 'w') as writeFile:
+    with open(new_filename[:-4] + '.csv', 'w') as writeFile:
         for line in new_csv:
             writeFile.write(line)
     # use provided function to load midi pattern from csv file
     # in order to use built-in function to write midi file itself to disc
-    pattern = midi.csv_to_midi(new_filename[:-4]+'.csv')
+    pattern = midi.csv_to_midi(new_filename[:-4] + '.csv')
     with open(new_filename, 'wb') as midiFile:
         writer = midi.FileWriter(midiFile)
         writer.write(pattern)
     return
+
 
 def check_if_note(line):
     # check if track-line is a note event
@@ -110,13 +117,15 @@ def check_if_note(line):
     else:
         return False, -1
 
+
 def get_note_info(line):
     # before calling, make sure that line really is note event
     split_line = [x.strip() for x in line.split(',')]
     pitch = int(split_line[4])
     time = int(split_line[1])
     return pitch, time
-    
+
+
 def write_track_line(track_nr, time, command, valuelist):
     # write single line of midi track with given content
     line = str(track_nr) + ', ' + str(time) + ', ' + str(command)
@@ -125,7 +134,8 @@ def write_track_line(track_nr, time, command, valuelist):
             line += ', ' + str(item)
     line += '\n'
     return line
-    
+
+
 def midi_track_to_numpy(track):
     # convert midi track to numpy array
     # [[pitch0, duration0], [pitch1, duration1],...]
@@ -137,35 +147,47 @@ def midi_track_to_numpy(track):
         else:
             pitch, time = get_note_info(line)
             notes.append([on_off, time, pitch])
+
     # split into off- and on-events
     mask = np.array([bool(elem[0]) for elem in notes])
     on_notes = np.array(notes)[mask]
     mask = np.logical_not(mask)
     off_notes = np.array(notes)[mask]
     result = []
+
+    previous_end = -1  # for keeping track of the time the previous note ends
     for on_note in on_notes:
         start = on_note[1]
         pitch = on_note[2]
+
+        # if there is a gap between the previous note and the current one
+        # TODO: If we want to model silence, consider adding this again
+        #if previous_end != -1 and previous_end < start:
+        #    result.append([-1, start - previous_end])  # add silence as a pitch
+
         # find corresponding off-event
-        off_idx = np.where(off_notes[:,2] == pitch)
+        off_idx = np.where(off_notes[:, 2] == pitch)
         if len(off_idx[0]) == 0:
             # no corresponding off-event found
             # -> ignore on event
             continue
         off_idx = off_idx[0][0]
         end = off_notes[off_idx][1]
-        result.append([pitch, end-start])
+        result.append([pitch, end - start])
+        previous_end = end  # store the time the previous note ends
+
         # delete off event (because off-event can only correspond to one on event)
         off_notes = np.delete(off_notes, off_idx, axis=0)
     return np.array(result)
+
 
 def numpy_to_midi_track(array, track_nr, title, key_signature=(0, 'major'), time_signature=[4, 2, 24, 8]):
     # convert numpy array (as defined in midi_track to numpy) to midi track
     # additional info about the track besides array must be supplied
     track_list = []
     track_list.append(write_track_line(track_nr, 0, 'Start_track', []))
-    track_list.append(write_track_line(track_nr, 0, 'Title_t', ['"'+title+'"']))
-    track_list.append(write_track_line(track_nr, 0, 'Key_signature', [key_signature[0], '"'+key_signature[1]+'"']))
+    track_list.append(write_track_line(track_nr, 0, 'Title_t', ['"' + title + '"']))
+    track_list.append(write_track_line(track_nr, 0, 'Key_signature', [key_signature[0], '"' + key_signature[1] + '"']))
     track_list.append(write_track_line(track_nr, 0, 'Time_signature', time_signature))
     time = 1024
     for note in array:
@@ -175,20 +197,22 @@ def numpy_to_midi_track(array, track_nr, title, key_signature=(0, 'major'), time
     time += 1024
     track_list.append(write_track_line(track_nr, 0, 'End_track', []))
     return track_list
-    
+
+
 def write_to_midi(csv_list, new_filename):
     # write csv_list to disc, convert csv file to midi file
-    with open(new_filename[:-4]+'.csv', 'w') as writeFile:
+    with open(new_filename[:-4] + '.csv', 'w') as writeFile:
         for line in csv_list:
             writeFile.write(line)
     # use provided function to load midi pattern from csv file
     # in order to use built-in function to write midi file itself to disc
-    pattern = midi.csv_to_midi(new_filename[:-4]+'.csv')
+    pattern = midi.csv_to_midi(new_filename[:-4] + '.csv')
     with open(new_filename, 'wb') as midiFile:
         writer = midi.FileWriter(midiFile)
         writer.write(pattern)
     return
-    
+
+
 def track_dict_to_csv(track_dict):
     # convert track_dict to original csv_list
     csv_list = []
@@ -202,7 +226,8 @@ def track_dict_to_csv(track_dict):
                 csv_list.append(elem)
     csv_list.append(track_dict['0'][-1])
     return csv_list
- 
+
+
 def find_lead_track(track_dict, random=True, largest_range=False, variation=False, rhythm=False):
     # determine the lead track using chosen criterions
     # Remove Header track because it is not really a track which contains music
@@ -213,9 +238,9 @@ def find_lead_track(track_dict, random=True, largest_range=False, variation=Fals
     num_tracks = len(key_list)
     # if criterion random is active all others are ignored
     if random:
-        nr = r.randint(0, num_tracks-1)
+        nr = r.randint(0, num_tracks - 1)
         return key_list[nr]
-    scores = [0]*num_tracks
+    scores = [0] * num_tracks
     numpy_tracks = []
     for key in key_list:
         numpy_track = midi_track_to_numpy(new_track_dict[key])
@@ -234,7 +259,7 @@ def find_lead_track(track_dict, random=True, largest_range=False, variation=Fals
     if variation:
         num_diff_notes = []
         for n_track in numpy_tracks:
-            n_diffs = len(np.unique(n_track[:,0]))
+            n_diffs = len(np.unique(n_track[:, 0]))
             num_diff_notes.append(n_diffs)
         track_idx = np.argmax(num_diff_notes)
         print('Number of different notes:', num_diff_notes)
@@ -243,7 +268,7 @@ def find_lead_track(track_dict, random=True, largest_range=False, variation=Fals
     if rhythm:
         num_diff_lengths = []
         for n_track in numpy_tracks:
-            n_diffs = len(np.unique(n_track[:,1]))
+            n_diffs = len(np.unique(n_track[:, 1]))
             num_diff_lengths.append(n_diffs)
         track_idx = np.argmax(num_diff_lengths)
         print('Number of different lengths:', num_diff_lengths)
@@ -254,17 +279,18 @@ def find_lead_track(track_dict, random=True, largest_range=False, variation=Fals
     if len(winners) == 0:
         return key_list[winners[0]]
     else:
-        winner = r.randint(0, len(winners)-1)
+        winner = r.randint(0, len(winners) - 1)
         return key_list[winner]
-    
+
+
 def get_mean_pitch(numpy_track):
     # return the mean pitch (rounded to integer, i.e. real note)
     mean_pitch = np.mean(numpy_track, axis=0)[0]
     return np.around(mean_pitch)
 
+
 def shift_track_pitch(numpy_track, delta_pitch):
     # shift the pitch of the notes in the track by given delta
-    mask = np.reshape([1,0]*len(numpy_track), (len(numpy_track), 2)) * delta_pitch
+    mask = np.reshape([1, 0] * len(numpy_track), (len(numpy_track), 2)) * delta_pitch
     new_track = numpy_track + mask
     return new_track
-    
