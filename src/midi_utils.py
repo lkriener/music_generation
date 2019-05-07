@@ -431,3 +431,14 @@ def shift_track_pitch(numpy_track, delta_pitch):
     mask = np.reshape([1, 0] * len(numpy_track), (len(numpy_track), 2)) * delta_pitch
     new_track = numpy_track + mask
     return new_track
+
+
+def translate_numpy_pianoroll(numpy_track, ticks_per_16):
+    pianoroll = []
+    for note in numpy_track:
+        pitch = note[0]
+        length = note[1]
+        num_of_16 = int(length / ticks_per_16)
+        for i in range(num_of_16):
+            pianoroll.append(pitch)
+    return np.array(pianoroll)
