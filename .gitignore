@@ -1,6 +1,8 @@
 # ignore checkpoints
 */.ipynb_checkpoints/
 
+# ignore interim_directory (contains just interim outputs for midi utils demo)
+data/interim/
 
 # ignore intellij idea config
 .idea/
