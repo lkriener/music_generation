@@ -1,3 +1,5 @@
 # only install uncommon packages in colab
 pygame==1.9.6
 py_midicsv==1.9.0
+pypianoroll==0.5.0
+
