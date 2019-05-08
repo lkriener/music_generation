@@ -66,6 +66,7 @@ def get_bpm(csv_string):
     return bpm, default
 
 
+
 def get_ticks_per_quarter(csv_string):
     """
     Get the number of midi-timesteps (ticks) per quarter note.
@@ -90,6 +91,30 @@ def get_ticks_per_quarter(csv_string):
             break
     return ticks, default
 
+
+def get_semitones_to_C(csv_string):
+    """
+    Get the number semitones to C major 
+
+    can be different for each track
+    therefore this function operates on a single track from the track_dict
+    info does not have to be included in track
+    in that case use midi-default (1024)
+    return value, bool if default was used
+    :param csv_string:
+    :return:
+    """
+
+    default = True
+    semitones = 0 # default
+    for line in csv_string:
+        # find line with Time_signature
+        split_line = [x.strip() for x in line.split(',')]
+        if split_line[2] == 'Key_signature':
+            semitones = int(split_line[3])
+            default = False
+            break
+    return semitones, default
 
 def replace_int_in_line(line, pos, new_val):
     """
@@ -442,3 +467,93 @@ def translate_numpy_pianoroll(numpy_track, ticks_per_16):
         for i in range(num_of_16):
             pianoroll.append(pitch)
     return np.array(pianoroll)
+
+
+def semitones_to_C(csv_string):
+    
+    return -int(csv_string[6][21])
+
+
+# Defining method to encode one hot labels
+def one_hot_encode_batch(arr, n_labels):
+    
+    # Initialize the the encoded array
+    one_hot = np.zeros((np.multiply(*arr.shape), n_labels), dtype=np.float32)
+    
+    # Fill the appropriate elements with ones
+    one_hot[np.arange(one_hot.shape[0]), arr.flatten()] = 1.
+    
+    # Finally reshape it to get back to the original array
+    one_hot = one_hot.reshape((*arr.shape, n_labels))
+    
+    return one_hot
+
+
+def one_hot_encode(seq, n_notes):
+    
+    one_hot = np.zeros((len(seq), n_notes))
+    for i in range(len(seq)):
+        one_hot[i,seq[i]] = 1
+    return one_hot
+
+
+
+
+def flatten_one_hot_pianoroll(one_hot_pianoroll):
+    "returns a flattened piano_roll array keeping 0 for silences and 1 to global_range +1 for all the other notes"
+    flattened_pianoroll = np.argmax(one_hot_pianoroll, axis=1)
+    return flattened_pianoroll
+    
+def scale_pianoroll(flattened_pianoroll, global_lower):
+    '''scales flattened piano roll array to values ranging from 0 to global_range + 1
+     keep 0 for silences'''
+    scaled_pianoroll = np.copy(flattened_pianoroll - global_lower + 1)
+    scaled_pianoroll[np.where(scaled_pianoroll<0)] = 0 
+    return scaled_pianoroll
+
+def unscale_pianoroll(scaled_pianoroll, global_lower):
+    ''' does the other way around as scale_pianoroll'''
+    unscaled_pianoroll = np.copy(scaled_pianoroll + global_lower - 1)
+    unscaled_pianoroll[np.where(unscaled_pianoroll == global_lower-1)] = 0 # reset the silences to 0
+    return unscaled_pianoroll 
+
+
+
+# Defining method to make mini-batches for training
+def get_pianoroll_batches(arr, batch_size, seq_length):
+    '''Create a generator that returns batches of size
+       batch_size x seq_length from arr.
+       
+       Arguments
+       ---------
+       arr: Array you want to make batches from
+       batch_size: Batch size, the number of sequences per batch
+       seq_length: Number of encoded chars in a sequence
+    '''
+    
+    batch_size_total = batch_size * seq_length
+    # total number of batches we can make
+    n_batches = len(arr)//batch_size_total
+    
+    # Keep only enough characters to make full batches
+    arr = arr[:n_batches * batch_size_total]
+    # Reshape into batch_size rows
+    arr = arr.reshape((batch_size, -1))
+    
+    # iterate through the array, one sequence at a time
+    for n in range(0, arr.shape[1], seq_length):
+        # The features
+        x = arr[:, n:n+seq_length]
+        # The targets, shifted by one
+        y = np.zeros_like(x)
+        try:
+            y[:, :-1], y[:, -1] = x[:, 1:], arr[:, n+seq_length]
+        except IndexError:
+            y[:, :-1], y[:, -1] = x[:, 1:], arr[:, 0]
+        yield x, y
+    
+
+    
+
+
+    
