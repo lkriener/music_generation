@@ -573,7 +573,39 @@ def get_pianoroll_batches(arr, batch_size, seq_length):
         except IndexError:
             y[:, :-1], y[:, -1] = x[:, 1:], arr[:, 0]
         yield x, y
+
+        
+
+def get_pianoroll_batches_harmonization(arr, arr2, batch_size, seq_length):
+    '''
+    Create a generator that returns batches of size
+    batch_size x seq_length from arr.
+       
+    :arr: Array you want to make batches from
+    :batch_size: Batch size, the number of sequences per batch
+    :seq_length: Number of encoded notes in a sequence
+    '''
     
+    batch_size_total = batch_size * seq_length
+    # total number of batches we can make
+    n_batches = len(arr)//batch_size_total
+    
+    # Keep only enough characters to make full batches
+    arr = arr[:n_batches * batch_size_total]
+    arr2 = arr2[:n_batches * batch_size_total]
+    # Reshape into batch_size rows
+    arr = arr.reshape((batch_size, -1))
+    arr2 = arr.reshape((batch_size, -1))
+    # iterate through the array, one sequence at a time
+    
+    for n in range(0, arr.shape[1], seq_length):
+        # The features
+        x = arr[:, n:n+seq_length]
+        y = arr2[:, n:n+seq_length]
+        
+        yield x, y
+
+
 
     
 
