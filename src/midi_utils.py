@@ -595,7 +595,7 @@ def get_pianoroll_batches_harmonization(arr, arr2, batch_size, seq_length):
     arr2 = arr2[:n_batches * batch_size_total]
     # Reshape into batch_size rows
     arr = arr.reshape((batch_size, -1))
-    arr2 = arr.reshape((batch_size, -1))
+    arr2 = arr2.reshape((batch_size, -1))
     # iterate through the array, one sequence at a time
     
     for n in range(0, arr.shape[1], seq_length):
