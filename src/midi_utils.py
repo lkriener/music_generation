@@ -3,7 +3,6 @@ import random as r
 import numpy as np
 import py_midicsv as midi
 
-
 def load_to_csv(filepath):
     """
     Load midi to csv.
@@ -91,30 +90,6 @@ def get_ticks_per_quarter(csv_string):
             break
     return ticks, default
 
-
-def get_semitones_to_C(csv_string):
-    """
-    Get the number semitones to C major 
-
-    can be different for each track
-    therefore this function operates on a single track from the track_dict
-    info does not have to be included in track
-    in that case use 0 semitones
-    return value, bool if default was used
-    :param csv_string:
-    :return:
-    """
-
-    default = True
-    semitones = 0 # default
-    for line in csv_string:
-        # find line with Time_signature
-        split_line = [x.strip() for x in line.split(',')]
-        if split_line[2] == 'Key_signature':
-            semitones = int(split_line[3])
-            default = False
-            break
-    return semitones, default
 
 def replace_int_in_line(line, pos, new_val):
     """
@@ -471,139 +446,6 @@ def translate_numpy_pianoroll(numpy_track, ticks_per_16):
 
 
 
-def one_hot_encode_batch(flattened_pianoroll, n_notes):
-    """
-    Return a one-hot batch to perform RNN training
-    :flattened_pianoroll:
-    :n_notes:
-    :return:
-    """
-    
-    # Initialize the the encoded array
-    one_hot = np.zeros((np.multiply(*flattened_pianoroll.shape), n_notes), dtype=np.float32)
-    
-    # Fill the appropriate elements with ones
-    one_hot[np.arange(one_hot.shape[0]), flattened_pianoroll.flatten()] = 1.
-    
-    # Finally reshape it to get back to the original array
-    one_hot = one_hot.reshape((*flattened_pianoroll.shape, n_notes))
-    
-    return one_hot
-
-
-def one_hot_encode_pianoroll(flattened_pianoroll, n_notes):
-    """
-    Converts a flattened pianoroll to a one-hot matrix
-    keeping 0 for the silences
-    :flattened_pianoroll:
-    :n_notes: range of notes including the silence
-    :return:
-    """
-    one_hot = np.zeros((len(flattened_pianoroll), n_notes))
-    for i in range(len(flattened_pianoroll)):
-        if flattened_pianoroll[i] > 0: # if it is a note, and not a silence
-            one_hot[i,flattened_pianoroll[i]] = 1
-    return one_hot
-
-
-
-def flatten_one_hot_pianoroll(one_hot_pianoroll):
-    """
-    Returns a flattened piano_roll array 
-    :param one_hot_pianoroll: pianoroll representation from track object
-    :return:
-    """
-    flattened_pianoroll = np.argmax(one_hot_pianoroll, axis=1)
-    return flattened_pianoroll
-    
-def scale_pianoroll(flattened_pianoroll, global_lower):
-    """
-    Scales flattened pianoroll to values near 0
-    keep 0 for silences
-    :flattened_pianoroll: 
-    :global_lower: lower pitch of the whole tracks dataset 
-    :return:
-    """
-    scaled_pianoroll = np.copy(flattened_pianoroll - global_lower + 1)
-    scaled_pianoroll[np.where(scaled_pianoroll<0)] = 0 
-    return scaled_pianoroll
-
-def unscale_pianoroll(scaled_pianoroll, global_lower):
-    """
-    Returns the pianoroll in the initial config.
-    before applying scale_pianoroll
-    :scaled_pianoroll:
-    :global_lower:
-    :return:
-    """
-    unscaled_pianoroll = np.copy(scaled_pianoroll + global_lower - 1)
-    unscaled_pianoroll[np.where(unscaled_pianoroll == global_lower-1)] = 0 # reset the silences to 0
-    return unscaled_pianoroll 
-
-
-
-# Defining method to make mini-batches for training
-def get_pianoroll_batches(arr, batch_size, seq_length):
-    '''
-    Create a generator that returns batches of size
-    batch_size x seq_length from arr.
-       
-    :arr: Array you want to make batches from
-    :batch_size: Batch size, the number of sequences per batch
-    :seq_length: Number of encoded notes in a sequence
-    '''
-    
-    batch_size_total = batch_size * seq_length
-    # total number of batches we can make
-    n_batches = len(arr)//batch_size_total
-    
-    # Keep only enough characters to make full batches
-    arr = arr[:n_batches * batch_size_total]
-    # Reshape into batch_size rows
-    arr = arr.reshape((batch_size, -1))
-    
-    # iterate through the array, one sequence at a time
-    for n in range(0, arr.shape[1], seq_length):
-        # The features
-        x = arr[:, n:n+seq_length]
-        # The targets, shifted by one
-        y = np.zeros_like(x)
-        try:
-            y[:, :-1], y[:, -1] = x[:, 1:], arr[:, n+seq_length]
-        except IndexError:
-            y[:, :-1], y[:, -1] = x[:, 1:], arr[:, 0]
-        yield x, y
-
-        
-
-def get_pianoroll_batches_harmonization(arr, arr2, batch_size, seq_length):
-    '''
-    Create a generator that returns batches of size
-    batch_size x seq_length from arr.
-       
-    :arr: Array you want to make batches from
-    :batch_size: Batch size, the number of sequences per batch
-    :seq_length: Number of encoded notes in a sequence
-    '''
-    
-    batch_size_total = batch_size * seq_length
-    # total number of batches we can make
-    n_batches = len(arr)//batch_size_total
-    
-    # Keep only enough characters to make full batches
-    arr = arr[:n_batches * batch_size_total]
-    arr2 = arr2[:n_batches * batch_size_total]
-    # Reshape into batch_size rows
-    arr = arr.reshape((batch_size, -1))
-    arr2 = arr2.reshape((batch_size, -1))
-    # iterate through the array, one sequence at a time
-    
-    for n in range(0, arr.shape[1], seq_length):
-        # The features
-        x = arr[:, n:n+seq_length]
-        y = arr2[:, n:n+seq_length]
-        
-        yield x, y
 
 
 
