@@ -1,6 +1,7 @@
 # neural networks
 numpy==1.14.3  # data representation
 torch==1.0.1  # neural network framework
+keras==2.2.4  # neural network framework
 
 # midi
 py_midicsv==1.9.0  # reading midi from csv
@@ -10,6 +11,9 @@ pygame==1.9.6  # playing midi in python
 
 # scripting
 argparse==1.4.0  # parametrize the scripts to run them from the console
+
+# plotting
+matplotlib==3.0.2  # plotting library
 
 # jupyter environment
 notebook==5.7.8
