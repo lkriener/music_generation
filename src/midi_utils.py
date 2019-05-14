@@ -11,7 +11,6 @@ from mido import MidiFile, MidiTrack, Message
 def load_to_csv(filepath):
     """
     Load midi to csv.
-
     :param filepath:
     :return:
     """
@@ -22,7 +21,6 @@ def load_to_csv(filepath):
 def split_tracks(csv_string):
     """
     Split song into tracks.
-
     first number in each line is the track number
     track 0 always contains some additional info, not the music
     returns a dictionary with track numbers as keys
@@ -44,7 +42,6 @@ def split_tracks(csv_string):
 def get_bpm(csv_string):
     """
     Get beats per minute of the song.
-
     assume no tempo changes in file
     necessary value does not have to be included in file
     in that case use midi-default
@@ -74,7 +71,6 @@ def get_bpm(csv_string):
 def get_ticks_per_quarter(csv_string):
     """
     Get the number of midi-timesteps (ticks) per quarter note.
-
     can be different for each track
     therefore this function operates on a single track from the track_dict
     info does not have to be included in track
@@ -99,7 +95,6 @@ def get_ticks_per_quarter(csv_string):
 def get_semitones_to_C(csv_string):
     """
     Get the number semitones to C major 
-
     can be different for each track
     therefore this function operates on a single track from the track_dict
     info does not have to be included in track
@@ -123,7 +118,6 @@ def get_semitones_to_C(csv_string):
 def replace_int_in_line(line, pos, new_val):
     """
     Replace an int-value in a csv line at pos with a new value.
-
     :param line:
     :param pos:
     :param new_val:
@@ -144,7 +138,6 @@ def replace_int_in_line(line, pos, new_val):
 def reduce_to_single_track(filename, new_filename, track_nr):
     """
     Reduce a file to a single track and save it to a new file.
-
     can be used to make file monophonic if the track nr of the track
     that should be kept is known (has to be determined with other functions)
     takes filename of polyphonic midi and name of file to which monophonic should be written
@@ -187,7 +180,6 @@ def reduce_to_single_track(filename, new_filename, track_nr):
 def check_if_note(line):
     """
     Check if track-line is a note event.
-
     second return value indicates if on or off event
     :param line:
     :return:
@@ -205,7 +197,6 @@ def check_if_note(line):
 def get_note_info(line):
     """
     Get note pitch and length.
-
     :param line:
     :return:
     """
@@ -222,7 +213,6 @@ def get_note_info(line):
 def _write_track_line(track_nr, time, command, value_list):
     """
     Write single line of midi track with given content.
-
     :param track_nr:
     :param time:
     :param command:
@@ -241,7 +231,6 @@ def _write_track_line(track_nr, time, command, value_list):
 def midi_track_to_numpy(track):
     """
     Convert midi track to numpy array.
-
     Format: [[pitch0, duration0], [pitch1, duration1],...]
     :param track:
     :return:
@@ -292,7 +281,6 @@ def midi_track_to_numpy(track):
 def numpy_to_midi_track(array, track_nr, title, key_signature=(0, 'major'), time_signature=[4, 2, 24, 8]):
     """
     Convert numpy array (as defined in midi_track to numpy) to midi track.
-
     additional info about the track besides array must be supplied
     :param array:
     :param track_nr:
@@ -329,7 +317,6 @@ def prediction_to_numpy(predictions, default_note_length=1024):
 def write_to_midi(csv_list, new_filename):
     """
     Write csv_list to disc, convert csv file to midi file.
-
     :param csv_list:
     :param new_filename:
     :return:
@@ -350,7 +337,6 @@ def write_to_midi(csv_list, new_filename):
 def track_dict_to_csv(track_dict):
     """
     Convert track_dict to original csv_list.
-
     :param track_dict:
     :return:
     """
@@ -371,7 +357,6 @@ def track_dict_to_csv(track_dict):
 def find_lead_track(track_dict, random=True, largest_range=False, variation=False, rhythm=False):
     """
     Determine the lead track using chosen criteria.
-
     Remove Header track because it is not really a track which contains music
     :param track_dict:
     :param random:
@@ -440,7 +425,6 @@ def find_lead_track(track_dict, random=True, largest_range=False, variation=Fals
 def get_mean_pitch(numpy_track):
     """
     Return the mean pitch (rounded to integer, i.e. real note).
-
     :param numpy_track:
     :return:
     """
@@ -452,7 +436,6 @@ def get_mean_pitch(numpy_track):
 def shift_track_pitch(numpy_track, delta_pitch):
     """
     Shift the pitch of the notes in the track by given delta.
-
     :param numpy_track:
     :param delta_pitch:
     :return:
@@ -473,139 +456,6 @@ def translate_numpy_pianoroll(numpy_track, ticks_per_16):
             pianoroll.append(pitch)
     return np.array(pianoroll)
 
-
-def one_hot_encode_batch(flattened_pianoroll, n_notes):
-    """
-    Return a one-hot batch to perform RNN training
-    :flattened_pianoroll:
-    :n_notes:
-    :return:
-    """
-    
-    # Initialize the the encoded array
-    one_hot = np.zeros((np.multiply(*flattened_pianoroll.shape), n_notes), dtype=np.float32)
-    
-    # Fill the appropriate elements with ones
-    one_hot[np.arange(one_hot.shape[0]), flattened_pianoroll.flatten()] = 1.
-    
-    # Finally reshape it to get back to the original array
-    one_hot = one_hot.reshape((*flattened_pianoroll.shape, n_notes))
-    
-    return one_hot
-
-
-def one_hot_encode_pianoroll(flattened_pianoroll, n_notes):
-    """
-    Converts a flattened pianoroll to a one-hot matrix
-    keeping 0 for the silences
-    :flattened_pianoroll:
-    :n_notes: range of notes including the silence
-    :return:
-    """
-    one_hot = np.zeros((len(flattened_pianoroll), n_notes))
-    for i in range(len(flattened_pianoroll)):
-        if flattened_pianoroll[i] > 0:  # if it is a note, and not a silence
-            one_hot[i, flattened_pianoroll[i]] = 1
-    return one_hot
-
-
-def flatten_one_hot_pianoroll(one_hot_pianoroll):
-    """
-    Returns a flattened piano_roll array 
-    :param one_hot_pianoroll: pianoroll representation from track object
-    :return:
-    """
-    flattened_pianoroll = np.argmax(one_hot_pianoroll, axis=1)
-    return flattened_pianoroll
-
-
-def scale_pianoroll(flattened_pianoroll, global_lower):
-    """
-    Scales flattened pianoroll to values near 0
-    keep 0 for silences
-    :flattened_pianoroll: 
-    :global_lower: lower pitch of the whole tracks dataset 
-    :return:
-    """
-    scaled_pianoroll = np.copy(flattened_pianoroll - global_lower + 1)
-    scaled_pianoroll[np.where(scaled_pianoroll<0)] = 0 
-    return scaled_pianoroll
-
-
-def unscale_pianoroll(scaled_pianoroll, global_lower):
-    """
-    Returns the pianoroll in the initial config.
-    before applying scale_pianoroll
-    :scaled_pianoroll:
-    :global_lower:
-    :return:
-    """
-    unscaled_pianoroll = np.copy(scaled_pianoroll + global_lower - 1)
-    unscaled_pianoroll[np.where(unscaled_pianoroll == global_lower-1)] = 0  # reset the silences to 0
-    return unscaled_pianoroll 
-
-
-# Defining method to make mini-batches for training
-def get_pianoroll_batches(arr, batch_size, seq_length):
-    """
-    Create a generator that returns batches of size
-    batch_size x seq_length from arr.
-       
-    :arr: Array you want to make batches from
-    :batch_size: Batch size, the number of sequences per batch
-    :seq_length: Number of encoded notes in a sequence
-    """
-    
-    batch_size_total = batch_size * seq_length
-    # total number of batches we can make
-    n_batches = len(arr)//batch_size_total
-    
-    # Keep only enough characters to make full batches
-    arr = arr[:n_batches * batch_size_total]
-    # Reshape into batch_size rows
-    arr = arr.reshape((batch_size, -1))
-    
-    # iterate through the array, one sequence at a time
-    for n in range(0, arr.shape[1], seq_length):
-        # The features
-        x = arr[:, n:n+seq_length]
-        # The targets, shifted by one
-        y = np.zeros_like(x)
-        try:
-            y[:, :-1], y[:, -1] = x[:, 1:], arr[:, n+seq_length]
-        except IndexError:
-            y[:, :-1], y[:, -1] = x[:, 1:], arr[:, 0]
-        yield x, y
-
-
-def get_pianoroll_batches_harmonization(arr, arr2, batch_size, seq_length):
-    """
-    Create a generator that returns batches of size
-    batch_size x seq_length from arr.
-       
-    :arr: Array you want to make batches from
-    :batch_size: Batch size, the number of sequences per batch
-    :seq_length: Number of encoded notes in a sequence
-    """
-    
-    batch_size_total = batch_size * seq_length
-    # total number of batches we can make
-    n_batches = len(arr)//batch_size_total
-    
-    # Keep only enough characters to make full batches
-    arr = arr[:n_batches * batch_size_total]
-    arr2 = arr2[:n_batches * batch_size_total]
-    # Reshape into batch_size rows
-    arr = arr.reshape((batch_size, -1))
-    arr2 = arr2.reshape((batch_size, -1))
-    # iterate through the array, one sequence at a time
-    
-    for n in range(0, arr.shape[1], seq_length):
-        # The features
-        x = arr[:, n:n+seq_length]
-        y = arr2[:, n:n+seq_length]
-        
-        yield x, y
 
 
 def midi_to_samples(file_name, encode_length=False, num_notes=96, samples_per_measure=96):
