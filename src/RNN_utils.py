@@ -76,7 +76,7 @@ def get_all_pianorolls(voice, home_dir, beat_resolution=4):
     list_pianorolls = []
     midi_files = [] # store all midi files 
     os.chdir(home_dir + "/data/raw/bach")  # go to a folder relative to home dir
-  
+    
     for midi_file in glob.glob("*.mid"):
         track = get_track(midi_file, voice, beat_resolution=beat_resolution)
         # get the flattened representation of pianoroll
