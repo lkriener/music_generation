@@ -18,7 +18,7 @@ def vae_sampling(args):
     return z_mean + K.exp(z_log_sigma_sq * 0.5) * epsilon
 
 
-def create_autoencoder_model(input_shape, latent_space_size, dropout_rate, max_windows, batchnorm_momentum, use_vae=False, vae_b1=0.02):
+def create_keras_autoencoder_model(input_shape, latent_space_size, dropout_rate, max_windows, batchnorm_momentum, use_vae=False, vae_b1=0.02):
     """
     Create larger autoencoder with the options of making it variational and embedding.
     :param input_shape:
