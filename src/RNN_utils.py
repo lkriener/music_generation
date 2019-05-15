@@ -200,7 +200,7 @@ def train(net, data, data2=None, mode="melody_generation", epochs=10, batch_size
         val_h = net.init_hidden(batch_size)
         net.eval()
 
-        losses = []
+        store_losses = []
 
         if mode == "melody_generation":
             batch_generator_val = get_pianoroll_batches(val_data, batch_size, seq_length)
