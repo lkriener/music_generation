@@ -236,17 +236,17 @@ def train(net, data, data2=None, mode="melody_generation", epochs=10, batch_size
               "Loss: {:.4f}...".format(train_loss),
               "Val Loss: {:.4f}".format(val_loss))
     
-    ### Early stopping code, does not stop training but copy best model 
-    if val_loss < best_val_loss:
-        best_val_loss = val_loss
-        best_net = deepcopy(net)
-        best_epoch = e
-        counter = 0
-    else:
-        counter += 1
-    if counter == patience:
-        print('No improvement for {} epochs; training stopped.'.format(patience))
-    ###
+        ### Early stopping code, does not stop training but copy best model 
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            best_net = deepcopy(net)
+            best_epoch = e
+            counter = 0
+        else:
+            counter += 1
+        if counter == patience:
+            print('No improvement for {} epochs; training stopped.'.format(patience))
+        ###
 
                   
     return np.array(train_losses), np.array(val_losses), best_net, best_epoch
