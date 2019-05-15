@@ -73,22 +73,23 @@ def get_all_pianorolls(voice, home_dir, beat_resolution=4):
     :beat_resolution: minimal pianoroll time step. Default 4=sixteenth
     :return:
     '''
-  
     list_pianorolls = []
+    midi_files = [] # store all midi files 
     os.chdir(home_dir + "/data/raw/bach")  # go to a folder relative to home dir
   
     for midi_file in glob.glob("*.mid"):
-        #print(midi_file)
         track = get_track(midi_file, voice, beat_resolution=beat_resolution)
         # get the flattened representation of pianoroll
         pianoroll_flattened = flatten_one_hot_pianoroll(track.pianoroll)
         # add it to the global list of all tracks
         list_pianorolls.append(pianoroll_flattened)
         
+        midi_files.append(midi_file)
+    
     # convert into an array 
     all_pianorolls = np.concatenate(list_pianorolls)
     
-    return all_pianorolls
+    return all_pianorolls, midi_files
 
 
 
