@@ -158,7 +158,7 @@ def train(net, data, data2=None, mode="melody_generation", epochs=10, batch_size
     n_notes = net.n_notes 
     for e in range(epochs):
         
-        store_losses = []
+        losses = []
         
         # initialize hidden state
         h = net.init_hidden(batch_size)
@@ -206,6 +206,7 @@ def train(net, data, data2=None, mode="melody_generation", epochs=10, batch_size
             batch_generator_val = get_pianoroll_batches(val_data, batch_size, seq_length)
         elif mode == "harmonization":
             batch_generator_val = get_pianoroll_batches_harmonization(val_data, val_data2, batch_size, seq_length)
+            
         for x, y in batch_generator_val:
             # One-hot encode our data and make them Torch tensors
             x = one_hot_encode_batch(x, n_notes)
@@ -511,7 +512,7 @@ def process_single(net, start, seq_size, global_lower, beat_resolution=2):
     # store it a in a track object
     track = Track(pianoroll=one_hot, name='new track')
     # create a multitrack made of the generated track object
-    multitrack = Multitrack(tracks=[new_track], tempo = 90, beat_resolution=beat_resolution)
+    multitrack = Multitrack(tracks=[track], tempo = 90, beat_resolution=beat_resolution)
     
     return multitrack
 
