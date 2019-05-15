@@ -5,7 +5,7 @@ import copy
 import random as r
 import numpy as np
 import py_midicsv as midi
-from mido import MidiFile, MidiTrack, Message
+from mido import MidiFile, MidiTrack, Message, MetaMessage, bpm2tempo
 
 
 def load_to_csv(filepath):
@@ -67,7 +67,6 @@ def get_bpm(csv_string):
     return bpm, default
 
 
-
 def get_ticks_per_quarter(csv_string):
     """
     Get the number of midi-timesteps (ticks) per quarter note.
@@ -105,7 +104,7 @@ def get_semitones_to_C(csv_string):
     """
 
     default = True
-    semitones = 0 # default
+    semitones = 0  # default
     for line in csv_string:
         # find line with Time_signature
         split_line = [x.strip() for x in line.split(',')]
@@ -114,6 +113,7 @@ def get_semitones_to_C(csv_string):
             default = False
             break
     return semitones, default
+
 
 def replace_int_in_line(line, pos, new_val):
     """
@@ -457,7 +457,6 @@ def translate_numpy_pianoroll(numpy_track, ticks_per_16):
     return np.array(pianoroll)
 
 
-
 def midi_to_samples(file_name, encode_length=False, num_notes=96, samples_per_measure=96):
     """
     Turn a midi file into a sample.
@@ -563,7 +562,7 @@ def midi_to_samples(file_name, encode_length=False, num_notes=96, samples_per_me
     return samples
 
 
-def samples_to_midi(samples, file_name, threshold=0.5, num_notes=96, samples_per_measure=96):
+def samples_to_midi(samples, file_name, threshold=0.5, num_notes=96, samples_per_measure=96, instrument=1, tempo=90, velocity_mean=100, velocity_sigma=0, slur_notes=True):
     """
     Turn the samples/measures back into midi.
     :param samples:
@@ -571,11 +570,16 @@ def samples_to_midi(samples, file_name, threshold=0.5, num_notes=96, samples_per
     :param threshold:
     :param num_notes:
     :param samples_per_measure:
+    :param instrument:
+    :param tempo:
+    :param velocity_mean:
+    :param velocity_sigma:
+    :param slur_notes: Make all notes end to end without any gaps in between.
     :return:
     """
     # TODO: Encode the certainties of the notes into the volume of the midi for the notes that are above threshold
 
-    mid = MidiFile()
+    mid = MidiFile(ticks_per_beat=tempo)
     track = MidiTrack()
     mid.tracks.append(track)
 
@@ -583,29 +587,41 @@ def samples_to_midi(samples, file_name, threshold=0.5, num_notes=96, samples_per
     ticks_per_measure = 4 * ticks_per_beat
     ticks_per_sample = ticks_per_measure / samples_per_measure
 
-    # add instrument for track
-    # https://en.wikipedia.org/wiki/General_MIDI#Program_change_events
-    piano = 1
-    honky_tonk_piano = 4
-    xylophone = 14
-    program_message = Message('program_change', program=piano, time=0, channel=0)
+    # add instrument for track (https://en.wikipedia.org/wiki/General_MIDI#Program_change_events)
+    # piano = 1, honky_tonk_piano = 4, xylophone = 14
+    program_message = Message('program_change', program=instrument, time=0, channel=0)
     track.append(program_message)
+
+    # # add overall tempo (https://mido.readthedocs.io/en/latest/midi_files.html)
+    tempo_message = MetaMessage('set_tempo', tempo=bpm2tempo(tempo))
+    track.append(tempo_message)
 
     abs_time = 0
     last_time = 0
+    last_note = -1
     for sample in samples:
         for y in range(sample.shape[0]):
             abs_time += ticks_per_sample
             for x in range(sample.shape[1]):
                 note = x + (128 - num_notes) / 2
 
-                if sample[y, x] >= threshold and (y == 0 or sample[y - 1, x] < threshold):
-                    delta_time = abs_time - last_time
-                    track.append(Message('note_on', note=int(note), velocity=127, time=int(delta_time)))
-                    last_time = abs_time
+                if not slur_notes:
+                    if sample[y, x] >= threshold and (y == 0 or sample[y - 1, x] < threshold):
+                        delta_time = abs_time - last_time
+                        track.append(Message('note_on', note=int(note), velocity=int(np.random.normal(velocity_mean, velocity_sigma, 1)[0]), time=int(delta_time)))
+                        last_time = abs_time
 
-                if sample[y, x] >= threshold and (y == sample.shape[0] - 1 or sample[y + 1, x] < threshold):
-                    delta_time = abs_time - last_time
-                    track.append(Message('note_off', note=int(note), velocity=127, time=int(delta_time)))
-                    last_time = abs_time
+                    if sample[y, x] >= threshold and (y == sample.shape[0] - 1 or sample[y + 1, x] < threshold):
+                        delta_time = abs_time - last_time
+                        track.append(Message('note_off', note=int(note), velocity=int(np.random.normal(velocity_mean, velocity_sigma, 1)[0]), time=int(delta_time)))
+                        last_time = abs_time
+
+                else:
+                    if sample[y, x] >= threshold and (y == 0 or sample[y - 1, x] < threshold):
+                        delta_time = abs_time - last_time
+                        if last_note != -1:
+                            track.append(Message('note_off', note=int(note), velocity=int(np.random.normal(velocity_mean, velocity_sigma, 1)[0]), time=int(delta_time)))
+                        track.append(Message('note_on', note=int(note), velocity=int(np.random.normal(velocity_mean, velocity_sigma, 1)[0]), time=int(delta_time)))
+                        last_note = int(note)
+                        last_time = abs_time
     mid.save(file_name)
