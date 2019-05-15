@@ -8,7 +8,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 import glob 
-
+from copy import deepcopy
 
 # Check if GPU is available
 train_on_gpu = torch.cuda.is_available()
@@ -16,6 +16,9 @@ if(train_on_gpu):
     print('Training on GPU!')
 else: 
     print('No GPU available, training on CPU; consider making n_epochs very small.')
+
+    
+    
 
 
 
@@ -49,7 +52,7 @@ def get_semitones_to_C(csv_string):
 def get_track(midi_filename, voice, beat_resolution, transpose = True):
     csv_text = midi_utils.load_to_csv(midi_filename)
     # get semitones to C major 
-    semitones,_ = midi_utils.get_semitones_to_C(csv_text)
+    semitones,_ = get_semitones_to_C(csv_text)
     # get multitrack object from midi 
     multitrack = pypianoroll.parse(midi_filename, beat_resolution=beat_resolution)
     # get the voice track 
@@ -78,7 +81,7 @@ def get_all_pianorolls(voice, home_dir, beat_resolution=4):
         #print(midi_file)
         track = get_track(midi_file, voice, beat_resolution=beat_resolution)
         # get the flattened representation of pianoroll
-        pianoroll_flattened = midi_utils.flatten_one_hot_pianoroll(track.pianoroll)
+        pianoroll_flattened = flatten_one_hot_pianoroll(track.pianoroll)
         # add it to the global list of all tracks
         list_pianorolls.append(pianoroll_flattened)
         
@@ -139,22 +142,35 @@ def train(net, data, data2=None, mode="melody_generation", epochs=10, batch_size
     
     if(train_on_gpu):
         net.cuda()
-        
+    
+    train_losses = []
+    val_losses = []
+    
+    # parameters for early stopping
+    ### Early stopping code
+    best_val_loss = np.inf
+    best_net = None
+    patience = 5 # if no improvement after 5 epochs, stop training
     counter = 0
+    best_epoch = 0
+        
+    
     n_notes = net.n_notes 
     for e in range(epochs):
+        
+        store_losses = []
+        
         # initialize hidden state
         h = net.init_hidden(batch_size)
         
         if mode == "melody_generation":
-            batch_generator = midi_utils.get_pianoroll_batches(data, batch_size, seq_length)
+            batch_generator = get_pianoroll_batches(data, batch_size, seq_length)
         elif mode == "harmonization":
-            batch_generator = midi_utils.get_pianoroll_batches_harmonization(data, data2, batch_size, seq_length)
+            batch_generator = get_pianoroll_batches_harmonization(data, data2, batch_size, seq_length)
         for x, y in batch_generator:
-            counter += 1
             
             # One-hot encode our data and make them Torch tensors
-            x = midi_utils.one_hot_encode_batch(x, n_notes)
+            x = one_hot_encode_batch(x, n_notes)
             inputs, targets = torch.from_numpy(x), torch.from_numpy(y)
             if(train_on_gpu):
                 inputs, targets = inputs.cuda(), targets.cuda()
@@ -175,44 +191,76 @@ def train(net, data, data2=None, mode="melody_generation", epochs=10, batch_size
             nn.utils.clip_grad_norm_(net.parameters(), clip)
             opt.step()
             
-            # loss stats
-            if counter % print_every == 0:
-                # Get validation loss
-                val_h = net.init_hidden(batch_size)
-                val_losses = []
-                net.eval()
-                
-                if mode == "melody_generation":
-                    batch_generator_val = midi_utils.get_pianoroll_batches(val_data, batch_size, seq_length)
-                elif mode == "harmonization":
-                    batch_generator_val = midi_utils.get_pianoroll_batches_harmonization(val_data, val_data2, batch_size, seq_length)
-                for x, y in batch_generator_val:
-                    # One-hot encode our data and make them Torch tensors
-                    x = midi_utils.one_hot_encode_batch(x, n_notes)
-                    x, y = torch.from_numpy(x), torch.from_numpy(y)
-                    
-                    # Creating new variables for the hidden state, otherwise
-                    # we'd backprop through the entire training history
-                    val_h = tuple([each.data for each in val_h])
-                    
-                    inputs, targets = x, y
-                    if(train_on_gpu):
-                        inputs, targets = inputs.cuda(), targets.cuda()
+            store_losses.append(loss.item())
+            
+        train_loss = np.mean(store_losses)
+        train_losses.append(train_loss)
+        
+        # Get validation loss
+        val_h = net.init_hidden(batch_size)
+        net.eval()
 
-                    output, val_h = net(inputs, val_h)
-                    val_loss = criterion(output, targets.contiguous().view(batch_size*seq_length).long())
-                
-                    val_losses.append(val_loss.item())
-                
-                net.train() # reset to train mode after iterationg through validation data
-                
-                print("Epoch: {}/{}...".format(e+1, epochs),
-                      "Step: {}...".format(counter),
-                      "Loss: {:.4f}...".format(loss.item()),
-                      "Val Loss: {:.4f}".format(np.mean(val_losses)))
+        losses = []
 
+        if mode == "melody_generation":
+            batch_generator_val = get_pianoroll_batches(val_data, batch_size, seq_length)
+        elif mode == "harmonization":
+            batch_generator_val = get_pianoroll_batches_harmonization(val_data, val_data2, batch_size, seq_length)
+        for x, y in batch_generator_val:
+            # One-hot encode our data and make them Torch tensors
+            x = one_hot_encode_batch(x, n_notes)
+            x, y = torch.from_numpy(x), torch.from_numpy(y)
+
+            # Creating new variables for the hidden state, otherwise
+            # we'd backprop through the entire training history
+            val_h = tuple([each.data for each in val_h])
+
+            inputs, targets = x, y
+            if(train_on_gpu):
+                inputs, targets = inputs.cuda(), targets.cuda()
+
+            output, val_h = net(inputs, val_h)
+            loss = criterion(output, targets.contiguous().view(batch_size*seq_length).long())
+
+            store_losses.append(loss.item())
+
+        net.train() # reset to train mode after iterationg through validation data
+
+        
+        val_loss = np.mean(store_losses)
+        val_losses.append(val_loss)
+
+
+        print("Epoch: {}/{}...".format(e+1, epochs),
+              "Loss: {:.4f}...".format(train_loss),
+              "Val Loss: {:.4f}".format(val_loss))
+    
+    ### Early stopping code, does not stop training but copy best model 
+    if val_loss < best_val_loss:
+        best_val_loss = val_loss
+        best_net = deepcopy(net)
+        best_epoch = e
+        counter = 0
+    else:
+        counter += 1
+    if counter == patience:
+        print('No improvement for {} epochs; training stopped.'.format(patience))
+    ###
+
+                  
+    return np.array(train_losses), np.array(val_losses), best_net, best_epoch
                 
 
+    
+def display_losses(ax, train_losses, val_losses, best_epoch):
+    n_epochs = len(train_losses)
+    epochs = np.arange(n_epochs)
+    ax.plot(epochs, train_losses, label='Train')
+    ax.plot(epochs, val_losses, label="Valid")
+    ax.legend(loc = 'best')
+    ax.plot([0, best_epoch, n_epochs-1], [val_losses[0], val_losses[best_epoch], val_losses[n_epochs-1]], marker='*', ls='None', markersize=15, c='k')
+    ax.set_xlabel("Epochs")
+    ax.set_ylabel("Cross Entropy Loss")
                 
                 
                 
@@ -224,12 +272,12 @@ def predict(net, note, h=None):
         
         # tensor inputs
         x = np.array([[note]])
-        x = midi_utils.one_hot_encode_batch(x, net.n_notes)
+        x = one_hot_encode_batch(x, net.n_notes)
         inputs = torch.from_numpy(x)
         
         if(train_on_gpu):
             inputs = inputs.cuda()
-        
+       
         # detach hidden state from history
         h = tuple([each.data for each in h])
         # get the output of the model
@@ -438,6 +486,21 @@ def get_pianoroll_batches_harmonization(arr, arr2, batch_size, seq_length):
         y = arr2[:, n:n+seq_length]
         
         yield x, y
+
+
+def process_harmonization(midi_filename, net, global_lower, real_tracks, voice_togenerate):
+    soprano_pianoroll = scale_pianoroll(flatten_one_hot_pianoroll(real_tracks[0].pianoroll), global_lower)
+    pianoroll_real = scale_pianoroll(flatten_one_hot_pianoroll(real_tracks[voice_togenerate].pianoroll), global_lower)
+    # predict the second voice
+    pianoroll = sample_harmonization(net[voice_togenerate], soprano_pianoroll, prime = pianoroll_real[:4])
+    # go back to the pitch range 
+    pianoroll = unscale_pianoroll(pianoroll, global_lower)
+    # convert to one-hot representation for track object
+    one_hot = one_hot_encode_pianoroll(pianoroll, 128)*90
+    # get the track object
+    track = Track(pianoroll=one_hot, name='generated track')
+    
+    return track
 
 
 
