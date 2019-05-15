@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 class FeedForward(nn.Module):
     
     def __init__(self, input_dim, hidden_dim, output_dim):
-        super(MLPModel, self).__init__()
+        super(FeedForward, self).__init__()
         self.layers = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.ReLU(),
@@ -199,9 +199,10 @@ def save_results(result_dir, result_name, untrained_model, snapshot_model,
     return
 
 
-def generate_melody(valid_dataset, sample_idx, model, predict_length, interval_range, filename, start_pitch=74):
+def generate_melody(device, valid_dataset, sample_idx, model, predict_length, interval_range, filename, start_pitch=74):
     """
     Lets model generate a melody of specified length
+    :param device: 
     :param valid_dataset: validation dataset for starter intervals
     :param sample_idx: index of elem in dataset that is used
     :param model: 
@@ -213,7 +214,7 @@ def generate_melody(valid_dataset, sample_idx, model, predict_length, interval_r
     """
     interval_values = np.arange(interval_range[0], interval_range[1]+1, 1)
     generated_track = []
-    x, y = valid_dataset[sample_index]
+    x, y = valid_dataset[sample_idx]
     x = x.to(device)
     # correct for normalization in dataset
     x_orig = np.array(x.cpu().detach().numpy() * max(abs(interval_range[0]), interval_range[1]), dtype=int)
@@ -232,12 +233,13 @@ def generate_melody(valid_dataset, sample_idx, model, predict_length, interval_r
     # translate from sequence of intervals to sequence of pitches
     track = [start_pitch]
     for interval in generated_track:
-        # clamp to midi-valid range
-        if interval < 1:
-            interval = 1
-        if interval > 255:
-            interval = 255
         track.append(track[-1] + interval)
+    for i, note in enumerate(track):
+        # clamp to midi-valid range
+        if note < 1:
+            track[i] = 1
+        if note > 255:
+            track[i] = 255
     track = np.array(track)
     numpy_notes = midi_utils.prediction_to_numpy(track, 1024)
     
