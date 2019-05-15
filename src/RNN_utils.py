@@ -502,6 +502,18 @@ def process_harmonization(midi_filename, net, global_lower, real_tracks, voice_t
     
     return track
 
+def process_single(net, start, seq_size, global_lower, beat_resolution=2):
+    notes = sample(net, seq_size, prime=[start,start,start+2,start+2])
+    # put back to the pitch ranges
+    pianoroll = unscale_pianoroll(notes, global_lower) 
+    # create a one_hot_pianoroll
+    one_hot = one_hot_encode_pianoroll(pianoroll, 128)*90
+    # store it a in a track object
+    track = Track(pianoroll=one_hot, name='new track')
+    # create a multitrack made of the generated track object
+    multitrack = Multitrack(tracks=[new_track], tempo = 90, beat_resolution=beat_resolution)
+    
+    return multitrack
 
 
 
