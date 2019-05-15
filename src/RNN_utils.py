@@ -158,7 +158,7 @@ def train(net, data, data2=None, mode="melody_generation", epochs=10, batch_size
     n_notes = net.n_notes 
     for e in range(epochs):
         
-        losses = []
+        store_losses = []
         
         # initialize hidden state
         h = net.init_hidden(batch_size)
