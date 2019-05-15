@@ -8,6 +8,7 @@ py_midicsv==1.9.0  # reading midi from csv
 pypianoroll==0.5.0  # reading midi in piano roll representation
 mido==1.2.9  # reading midi in pythonic, class-based form
 pygame==1.9.6  # playing midi in python
+pyaudio==0.2.11  # playing music in python
 
 # scripting
 argparse==1.4.0  # parametrize the scripts to run them from the console

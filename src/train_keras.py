@@ -250,13 +250,13 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
     else:
         print("Building model...")
 
-        model = models.create_autoencoder_model(input_shape=y_shape[1:],
-                                                latent_space_size=LATENT_SPACE_SIZE,
-                                                dropout_rate=DROPOUT_RATE,
-                                                max_windows=MAX_WINDOWS,
-                                                batchnorm_momentum=BATCHNORM_MOMENTUM,
-                                                use_vae=USE_VAE,
-                                                vae_b1=VAE_B1)
+        model = models.create_keras_autoencoder_model(input_shape=y_shape[1:],
+                                                      latent_space_size=LATENT_SPACE_SIZE,
+                                                      dropout_rate=DROPOUT_RATE,
+                                                      max_windows=MAX_WINDOWS,
+                                                      batchnorm_momentum=BATCHNORM_MOMENTUM,
+                                                      use_vae=USE_VAE,
+                                                      vae_b1=VAE_B1)
 
         if USE_VAE:
             model.compile(optimizer=Adam(lr=learning_rate), loss=vae_loss)
