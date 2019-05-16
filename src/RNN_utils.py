@@ -232,7 +232,7 @@ def train(net, data, data2=None, harmonization=False, epochs=10, batch_size=10, 
 
         store_losses = []
 
-        if not harmonization
+        if not harmonization:
             batch_generator_val = get_pianoroll_batches(val_data, batch_size, seq_length)
         else:
             batch_generator_val = get_pianoroll_batches_harmonization(val_data, val_data2, batch_size, seq_length)
