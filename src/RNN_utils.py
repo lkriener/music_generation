@@ -568,7 +568,7 @@ def process_harmonization(midi_filename, nets, global_lower, real_tracks, voice_
     # go back to the pitch range 
     pianoroll = unscale_pianoroll(pianoroll, global_lower)
     # convert to one-hot representation for track object
-    one_hot = one_hot_encode_pianoroll(pianoroll, 128)*120
+    one_hot = one_hot_encode_pianoroll(pianoroll, 128)*80
     # get the track object
     track = Track(pianoroll=one_hot, name='generated track')
     
