@@ -101,26 +101,6 @@ def get_all_pianorolls(voice, home_dir, beat_resolution=2):
 
 
 
-def preprocess_pianorolls(home_dir, voice, beat_resolution=2):
-    """
-    Preprocess pianorolls data by using get_all_pianorolls, get_extrememum_pitches and
-    scale_pianorolls methods
-    :voice: 0=soprano, 1=alto, 2=tenor, 3=bass
-    :beat_resolution:
-    :return: scaled pianorolls ready for training
-    """
-    
-    # get lower and upper bounds 
-    all_pianorolls, midi_files = get_all_pianorolls(voice, home_dir, beat_resolution=4)
-    global_lower, global_upper, n_notes = get_extremum_pitches([all_pianorolls])
-    print('Global lower note : '+ str(global_lower))
-    print('Global upper note : '+ str(global_upper))
-    print('Number of notes : '+ str(n_notes))
-    all_pianorolls_scaled = scale_pianoroll(all_pianorolls, global_lower)
-    
-    return all_pianorolls_scaled, global_lower, global_upper, n_notes
-
-
 
 def get_extremum_pitches(list_pianorolls):
     '''
