@@ -614,15 +614,13 @@ class NoteRNN(nn.Module):
     
     def __init__(self, n_notes, n_hidden=256, n_layers=2, lr=0.001):
         super().__init__()
-        self.drop_prob = drop_prob
         self.n_layers = n_layers
         self.n_hidden = n_hidden
         self.lr = lr
         
         self.n_notes = n_notes 
         #define the LSTM
-        self.lstm = nn.LSTM(self.n_notes, n_hidden, n_layers, 
-                            dropout=drop_prob, batch_first=True)
+        self.lstm = nn.LSTM(self.n_notes, n_hidden, n_layers, batch_first=True)
         
         #define the final, fully-connected output layer
         self.fc = nn.Linear(n_hidden, self.n_notes)
