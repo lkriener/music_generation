@@ -9,13 +9,15 @@ from torch import nn
 import torch.nn.functional as F
 import glob 
 from copy import deepcopy
+import warnings
+warnings.filterwarnings('ignore')
 
 # Check if GPU is available
 train_on_gpu = torch.cuda.is_available()
 if(train_on_gpu):
     print('Training on GPU!')
 else: 
-    print('No GPU available, training on CPU; consider making n_epochs very small.')
+    print('No GPU available, training on CPU.')
 
     
     
@@ -31,8 +33,8 @@ def get_semitones_to_C(csv_string):
     info does not have to be included in track
     in that case use 0 semitones
     return value, bool if default was used
-    :param csv_string:
-    :return:
+    :param csv_string: csv file with information about the midi file
+    :return: semitones to C Major
     """
 
     default = True
@@ -50,6 +52,15 @@ def get_semitones_to_C(csv_string):
 
 
 def get_track(midi_filename, voice, beat_resolution, transpose = True):
+    '''
+    Convert midi file to track object
+    :midi_filename: midi file to convert
+    :voice: voice to select in the midi file (soprano, alto, tenor, bass)
+    :beat_resolution: number of time steps per quarter notes
+    :transpose: True if transpose to C Major
+    :return: track object for the selected voice
+    '''
+    
     csv_text = midi_utils.load_to_csv(midi_filename)
     # get semitones to C major 
     semitones,_ = get_semitones_to_C(csv_text)
@@ -65,13 +76,13 @@ def get_track(midi_filename, voice, beat_resolution, transpose = True):
 
 
 
-def get_all_pianorolls(voice, home_dir, beat_resolution=4):
+def get_all_pianorolls(voice, home_dir, beat_resolution=2):
     '''
     Returns a large concatenated pianoroll from all Bach Chorals midi files
     :voice: 0 = soprano, 1 = alto, 2 = tenor, 3 = bass 
     :home_dir: home directory we extract midi files from
     :beat_resolution: minimal pianoroll time step. Default 4=sixteenth
-    :return:
+    :return: concatenated pianorolls and list of midi files 
     '''
     list_pianorolls = []
     midi_files = [] # store all midi files 
@@ -90,6 +101,27 @@ def get_all_pianorolls(voice, home_dir, beat_resolution=4):
     all_pianorolls = np.concatenate(list_pianorolls)
     
     return all_pianorolls, midi_files
+
+
+
+def preprocess_pianorolls(home_dir, voice, beat_resolution=2):
+    """
+    Preprocess pianorolls data by using get_all_pianorolls, get_extrememum_pitches and
+    scale_pianorolls methods
+    :voice: 0=soprano, 1=alto, 2=tenor, 3=bass
+    :beat_resolution:
+    :return: scaled pianorolls ready for training
+    """
+    
+    # get lower and upper bounds 
+    all_pianorolls, midi_files = get_all_pianorolls(voice, home_dir, beat_resolution=4)
+    global_lower, global_upper, n_notes = get_extremum_pitches([all_pianorolls])
+    print('Global lower note : '+ str(global_lower))
+    print('Global upper note : '+ str(global_upper))
+    print('Number of notes : '+ str(n_notes))
+    all_pianorolls_scaled = scale_pianoroll(all_pianorolls, global_lower)
+    
+    return all_pianorolls_scaled, global_lower, global_upper, n_notes
 
 
 
@@ -117,18 +149,18 @@ def get_extremum_pitches(list_pianorolls):
     
 # Declaring the train method
 def train(net, data, data2=None, mode="melody_generation", epochs=10, batch_size=10, seq_length=50, lr=0.001, clip=5, val_frac=0.1, print_every=10):
-    ''' Training a network 
+    ''' 
+    Training a network 
 
-        net: NoteRNN network
-        data: text data to train the network
-        epochs: Number of epochs to train
-        batch_size: Number of mini-sequences per mini-batch, aka batch size
-        seq_length: Number of character steps per mini-batch
-        lr: learning rate
-        clip: gradient clipping
-        val_frac: Fraction of data to hold out for validation
-        print_every: Number of steps for printing training and validation loss
-    
+    net: NoteRNN network
+    data: text data to train the network
+    epochs: Number of epochs to train
+    batch_size: Number of mini-sequences per mini-batch, aka batch size
+    seq_length: Number of character steps per mini-batch
+    lr: learning rate
+    clip: gradient clipping
+    val_frac: Fraction of data to hold out for validation
+    print_every: Number of steps for printing training and validation loss
     '''
     net.train()
     
@@ -256,6 +288,10 @@ def train(net, data, data2=None, mode="melody_generation", epochs=10, batch_size
 
     
 def display_losses(ax, train_losses, val_losses, best_epoch):
+    """
+    Plot train and val losses with epochs and scatter validation
+    values at start, early stopping and end of training
+    """
     n_epochs = len(train_losses)
     epochs = np.arange(n_epochs)
     ax.plot(epochs, train_losses, label='Train')
@@ -267,101 +303,14 @@ def display_losses(ax, train_losses, val_losses, best_epoch):
                 
                 
                 
-# Defining a method to generate the next character
-def predict(net, note, h=None):
-        ''' Given a note, predict the next note.
-            Returns the predicted note and the hidden state.
-        '''
-        
-        # tensor inputs
-        x = np.array([[note]])
-        x = one_hot_encode_batch(x, net.n_notes)
-        inputs = torch.from_numpy(x)
-        
-        if(train_on_gpu):
-            inputs = inputs.cuda()
-       
-        # detach hidden state from history
-        h = tuple([each.data for each in h])
-        # get the output of the model
-        out, h = net(inputs, h)
-        
-
-        # get the character probabilities
-        p = F.softmax(out, dim=1).data
-        if(train_on_gpu):
-            p = p.cpu() # move to cpu
-        
-        note_range = np.arange(net.n_notes)
-        # select the likely next note with some element of randomness
-        p = p.numpy().squeeze()
-        note = np.random.choice(note_range, p=p/p.sum())
-        
-        # return the encoded value of the predicted char and the hidden state
-        return note, h
-                
-                
-
-# Declaring a method to generate new melody
-def sample(net, size, prime=[10,10,12,12]):
-        
-    if(train_on_gpu):
-        net.cuda()
-    else:
-        net.cpu()
-    
-    net.eval() # eval mode
-    
-    # First off, run through the prime notes
-    notes = [no for no in prime]
-    h = net.init_hidden(1)
-    for no in prime:
-        note, h = predict(net, no, h)
-    notes.append(note)
-    
-    # Now pass in the previous note and get a new one
-    for ii in range(size):
-        note, h = predict(net, notes[-1], h)
-        notes.append(note)
-
-    return np.array(notes)
-
-
-
-
-
-def sample_harmonization(net, seq, prime):
-        
-    if(train_on_gpu):
-        net.cuda()
-    else:
-        net.cpu()
-    
-    net.eval() # eval mode
-    
-    size = len(seq)
-    
-    # First off, run through the prime notes
-    notes = [no for no in prime]
-    h = net.init_hidden(1)
-    for no in prime:
-        note, h = predict(net, no, h)
-    notes.append(note)
-    
-    # Now pass in the previous character and get a new one
-    for ii in range(5,size):
-        note, h = predict(net, seq[ii], h)
-        notes.append(note)
-
-    return np.array(notes)
 
 
 def one_hot_encode_batch(flattened_pianoroll, n_notes):
     """
     Return a one-hot batch to perform RNN training
-    :flattened_pianoroll:
-    :n_notes:
-    :return:
+    :flattened_pianoroll: array of notes across time 
+    :n_notes: number of possible notes including silences 
+    :return: one-hot representation of the batch
     """
     
     # Initialize the the encoded array
@@ -379,7 +328,7 @@ def one_hot_encode_batch(flattened_pianoroll, n_notes):
 def one_hot_encode_pianoroll(flattened_pianoroll, n_notes):
     """
     Converts a flattened pianoroll to a one-hot matrix
-    keeping 0 for the silences
+    keeping 0 for the silences. Useful to process new track object.
     :flattened_pianoroll:
     :n_notes: range of notes including the silence
     :return:
@@ -396,7 +345,7 @@ def flatten_one_hot_pianoroll(one_hot_pianoroll):
     """
     Returns a flattened piano_roll array 
     :param one_hot_pianoroll: pianoroll representation from track object
-    :return:
+    :return: array of notes across time 
     """
     flattened_pianoroll = np.argmax(one_hot_pianoroll, axis=1)
     return flattened_pianoroll
@@ -489,23 +438,158 @@ def get_pianoroll_batches_harmonization(arr, arr2, batch_size, seq_length):
         y = arr2[:, n:n+seq_length]
         
         yield x, y
+        
+    
+    
+    
+    
+# Defining a method to generate the next character
+def predict(net, note, h=None):
+        ''' 
+        Given a note, predict the next/corresponding note.
+        Returns the predicted note and the hidden state.
+        '''
+        
+        # tensor inputs
+        x = np.array([[note]])
+        x = one_hot_encode_batch(x, net.n_notes)
+        inputs = torch.from_numpy(x)
+        
+        if(train_on_gpu):
+            inputs = inputs.cuda()
+       
+        # detach hidden state from history
+        h = tuple([each.data for each in h])
+        # get the output of the model
+        out, h = net(inputs, h)
+        
+
+        # get the character probabilities
+        p = F.softmax(out, dim=1).data
+        if(train_on_gpu):
+            p = p.cpu() # move to cpu
+        
+        note_range = np.arange(net.n_notes)
+        # select the likely next note with some element of randomness
+        p = p.numpy().squeeze()
+        note = np.random.choice(note_range, p=p/p.sum())
+        
+        # return the encoded value of the predicted char and the hidden state
+        return note, h
+                
+      
+    
+
+def sample(net, size, prime=[10,10,12,12]):
+    """
+    Returns a single melody starting from a sequence of notes
+    :net: network from which we generate the voice
+    :size: size of the sequence we want to generate
+    :prime: imposed start of the generated sequence
+    :return: generated melody 
+    """
+        
+    if(train_on_gpu):
+        net.cuda()
+    else:
+        net.cpu()
+    
+    net.eval() # eval mode
+    
+    # First off, run through the prime notes
+    notes = [no for no in prime]
+    h = net.init_hidden(1)
+    for no in prime:
+        note, h = predict(net, no, h)
+    notes.append(note)
+    
+    # Now pass in the previous note and get a new one
+    for ii in range(size):
+        note, h = predict(net, notes[-1], h)
+        notes.append(note)
+
+    return np.array(notes)
 
 
-def process_harmonization(midi_filename, net, global_lower, real_tracks, voice_togenerate):
+
+
+
+def sample_harmonization(net, seq, prime):
+    """
+    Generate corresponding voice from a given voice
+    :net: network from which we generate the voice
+    :seq: input voice to generate from - soprano
+    :prime: imposed start of the generated voice
+    :return: generated corresponding voice
+    """
+        
+    if(train_on_gpu):
+        net.cuda()
+    else:
+        net.cpu()
+    
+    net.eval() # eval mode
+    
+    size = len(seq)
+    
+    start_size = len(prime)
+    
+    # First off, run through the prime notes
+    notes = [no for no in prime]
+    h = net.init_hidden(1)
+    for no in prime:
+        note, h = predict(net, no, h)
+    notes.append(note)
+    
+    # Now pass in the previous character and get a new one
+    for ii in range(start_size+1, size):
+        note, h = predict(net, seq[ii], h)
+        notes.append(note)
+
+    return np.array(notes)
+
+
+
+
+
+def process_harmonization(midi_filename, net, global_lower, real_tracks, voice_togenerate, start_size):
+    """
+    Generate voice from a given soprano voice as a track object
+    :midi_filename:
+    :net: network from which the voice is generated
+    :global_lower: minimal pitch among all voices
+    :real_tracks: list of real voices 
+    :voice_togenerate: voice that we want to generate (1,2,3) 
+    :start_size: imposed size of real voice at the start of the generated voice
+    :return: track object of the generated voice 
+    """
+    
     soprano_pianoroll = scale_pianoroll(flatten_one_hot_pianoroll(real_tracks[0].pianoroll), global_lower)
     pianoroll_real = scale_pianoroll(flatten_one_hot_pianoroll(real_tracks[voice_togenerate].pianoroll), global_lower)
     # predict the second voice
-    pianoroll = sample_harmonization(net[voice_togenerate], soprano_pianoroll, prime = pianoroll_real[:4])
+    pianoroll = sample_harmonization(net[voice_togenerate], soprano_pianoroll, prime = pianoroll_real[:start_size])
     # go back to the pitch range 
     pianoroll = unscale_pianoroll(pianoroll, global_lower)
     # convert to one-hot representation for track object
-    one_hot = one_hot_encode_pianoroll(pianoroll, 128)*90
+    one_hot = one_hot_encode_pianoroll(pianoroll, 128)*120
     # get the track object
     track = Track(pianoroll=one_hot, name='generated track')
     
     return track
 
+
+
 def process_single(net, start, seq_size, global_lower, beat_resolution=2):
+    """
+    Generate a single melody as a multitrack object 
+    :net:
+    :start: starting note
+    :seq_size: sequence size to generate
+    :global_lower: minimal pitch of the voice
+    :beat_resolution:
+    :return: multitrack object for generated melody
+    """
+    
     notes = sample(net, seq_size, prime=[start,start,start+2,start+2])
     # put back to the pitch ranges
     pianoroll = unscale_pianoroll(notes, global_lower) 
@@ -524,6 +608,12 @@ def process_single(net, start, seq_size, global_lower, beat_resolution=2):
 
 # Declaring the model
 class NoteRNN(nn.Module):
+    
+    """
+    Neural network used to generate one note from a given one
+    Used for note to next note of single melody
+    or note to corresponding note of another voice
+    """
     
     def __init__(self, n_notes, n_hidden=256, n_layers=2,
                                drop_prob=0.2, lr=0.001):
