@@ -148,7 +148,7 @@ def get_extremum_pitches(list_pianorolls):
     
     
 # Declaring the train method
-def train(net, data, data2=None, mode="melody_generation", epochs=10, batch_size=10, seq_length=50, lr=0.001, clip=5, val_frac=0.1, print_every=10):
+def train(net, data, data2=None, harmonization=False, epochs=10, batch_size=10, seq_length=50, lr=0.001, clip=5, val_frac=0.1, print_every=10):
     ''' 
     Training a network 
 
@@ -196,9 +196,9 @@ def train(net, data, data2=None, mode="melody_generation", epochs=10, batch_size
         # initialize hidden state
         h = net.init_hidden(batch_size)
         
-        if mode == "melody_generation":
+        if not harmonization: 
             batch_generator = get_pianoroll_batches(data, batch_size, seq_length)
-        elif mode == "harmonization":
+        else:
             batch_generator = get_pianoroll_batches_harmonization(data, data2, batch_size, seq_length)
         for x, y in batch_generator:
             
@@ -235,9 +235,9 @@ def train(net, data, data2=None, mode="melody_generation", epochs=10, batch_size
 
         store_losses = []
 
-        if mode == "melody_generation":
+        if not harmonization: 
             batch_generator_val = get_pianoroll_batches(val_data, batch_size, seq_length)
-        elif mode == "harmonization":
+        else:
             batch_generator_val = get_pianoroll_batches_harmonization(val_data, val_data2, batch_size, seq_length)
             
         for x, y in batch_generator_val:
@@ -628,8 +628,6 @@ class NoteRNN(nn.Module):
         self.lstm = nn.LSTM(self.n_notes, n_hidden, n_layers, 
                             dropout=drop_prob, batch_first=True)
         
-        #define a dropout layer
-        self.dropout = nn.Dropout(drop_prob)
         
         #define the final, fully-connected output layer
         self.fc = nn.Linear(n_hidden, self.n_notes)
@@ -642,11 +640,8 @@ class NoteRNN(nn.Module):
         #get the outputs and the new hidden state from the lstm
         r_output, hidden = self.lstm(x, hidden)
         
-        #pass through a dropout layer
-        out = self.dropout(r_output)
-        
         # Stack up LSTM outputs using view
-        out = out.contiguous().view(-1, self.n_hidden)
+        out = r_output.contiguous().view(-1, self.n_hidden)
         
         #put x through the fully-connected layer
         out = self.fc(out)
