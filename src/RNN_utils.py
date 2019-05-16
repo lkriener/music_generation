@@ -19,9 +19,6 @@ if(train_on_gpu):
 else: 
     print('No GPU available, training on CPU.')
 
-    
-    
-
 
 
 def get_semitones_to_C(csv_string):
@@ -170,7 +167,7 @@ def train(net, data, data2=None, harmonization=False, epochs=10, batch_size=10, 
     # create training and validation data
     val_idx = int(len(data)*(1-val_frac))
     data, val_data = data[:val_idx], data[val_idx:]
-    if mode == "harmonization":
+    if harmonization:
         data2, val_data2 = data2[:val_idx], data2[val_idx:]
     
     if(train_on_gpu):
@@ -196,7 +193,7 @@ def train(net, data, data2=None, harmonization=False, epochs=10, batch_size=10, 
         # initialize hidden state
         h = net.init_hidden(batch_size)
         
-        if not harmonization: 
+        if not harmonization:
             batch_generator = get_pianoroll_batches(data, batch_size, seq_length)
         else:
             batch_generator = get_pianoroll_batches_harmonization(data, data2, batch_size, seq_length)
@@ -235,7 +232,7 @@ def train(net, data, data2=None, harmonization=False, epochs=10, batch_size=10, 
 
         store_losses = []
 
-        if not harmonization: 
+        if not harmonization
             batch_generator_val = get_pianoroll_batches(val_data, batch_size, seq_length)
         else:
             batch_generator_val = get_pianoroll_batches_harmonization(val_data, val_data2, batch_size, seq_length)
@@ -552,11 +549,11 @@ def sample_harmonization(net, seq, prime):
 
 
 
-def process_harmonization(midi_filename, net, global_lower, real_tracks, voice_togenerate, start_size):
+def process_harmonization(midi_filename, nets, global_lower, real_tracks, voice_togenerate, start_size):
     """
     Generate voice from a given soprano voice as a track object
     :midi_filename:
-    :net: network from which the voice is generated
+    :nets: networks list from which the voices are generated
     :global_lower: minimal pitch among all voices
     :real_tracks: list of real voices 
     :voice_togenerate: voice that we want to generate (1,2,3) 
@@ -567,7 +564,7 @@ def process_harmonization(midi_filename, net, global_lower, real_tracks, voice_t
     soprano_pianoroll = scale_pianoroll(flatten_one_hot_pianoroll(real_tracks[0].pianoroll), global_lower)
     pianoroll_real = scale_pianoroll(flatten_one_hot_pianoroll(real_tracks[voice_togenerate].pianoroll), global_lower)
     # predict the second voice
-    pianoroll = sample_harmonization(net[voice_togenerate], soprano_pianoroll, prime = pianoroll_real[:start_size])
+    pianoroll = sample_harmonization(nets[voice_togenerate], soprano_pianoroll, prime = pianoroll_real[:start_size])
     # go back to the pitch range 
     pianoroll = unscale_pianoroll(pianoroll, global_lower)
     # convert to one-hot representation for track object
@@ -615,8 +612,7 @@ class NoteRNN(nn.Module):
     or note to corresponding note of another voice
     """
     
-    def __init__(self, n_notes, n_hidden=256, n_layers=2,
-                               drop_prob=0.2, lr=0.001):
+    def __init__(self, n_notes, n_hidden=256, n_layers=2, lr=0.001):
         super().__init__()
         self.drop_prob = drop_prob
         self.n_layers = n_layers
@@ -628,7 +624,6 @@ class NoteRNN(nn.Module):
         self.lstm = nn.LSTM(self.n_notes, n_hidden, n_layers, 
                             dropout=drop_prob, batch_first=True)
         
-        
         #define the final, fully-connected output layer
         self.fc = nn.Linear(n_hidden, self.n_notes)
       
@@ -638,10 +633,10 @@ class NoteRNN(nn.Module):
             These inputs are x, and the hidden/cell state `hidden`. '''
                 
         #get the outputs and the new hidden state from the lstm
-        r_output, hidden = self.lstm(x, hidden)
+        out, hidden = self.lstm(x, hidden)
         
         # Stack up LSTM outputs using view
-        out = r_output.contiguous().view(-1, self.n_hidden)
+        out = out.contiguous().view(-1, self.n_hidden)
         
         #put x through the fully-connected layer
         out = self.fc(out)
