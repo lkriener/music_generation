@@ -89,6 +89,8 @@ def create_keras_autoencoder_model(input_shape, latent_space_size, dropout_rate,
 
     model = Model(x_in, x)
 
+    print(model.summary())
+
     return model
 
 
@@ -120,7 +122,7 @@ def create_pytorch_autoencoder_model(input_shape, latent_space_size, dropout_rat
     class Encoder(nn.Module):
         """Encoder"""
 
-        LAYER_DIMS = [96 * 96, 2000, 200, 3200, 1600]
+        LAYER_DIMS = [96 * 96, 2000, 200, 1600]
 
         def __init__(self):
             super(Encoder, self).__init__()
@@ -141,10 +143,10 @@ def create_pytorch_autoencoder_model(input_shape, latent_space_size, dropout_rat
             )
 
             self.layer3 = nn.Sequential(
-                nn.Linear(self.LAYER_DIMS[3], self.LAYER_DIMS[4]),
+                nn.Linear(self.LAYER_DIMS[2] * max_windows, self.LAYER_DIMS[3]),
                 nn.ReLU(),
 
-                nn.Linear(self.LAYER_DIMS[4], latent_space_size),
+                nn.Linear(self.LAYER_DIMS[3], latent_space_size),
                 nn.BatchNorm1d(latent_space_size, momentum=batchnorm_momentum)
             )
 
@@ -256,7 +258,7 @@ def create_pytorch_autoencoder_model(input_shape, latent_space_size, dropout_rat
 
             # print('linear shape', out.shape)
 
-            out = out.view(out.shape[0], max_windows, 200)
+            out = out.view(out.shape[0], max_windows, self.LAYER_DIMS[1])
 
             # print('flatten shape', out.shape)
 
@@ -303,5 +305,9 @@ def create_pytorch_autoencoder_model(input_shape, latent_space_size, dropout_rat
     encoder = Encoder()
 
     decoder = Decoder()
+
+    encoder_params = list(p.numel() for p in encoder.parameters())
+    decoder_params = list(p.numel() for p in decoder.parameters())
+    print("autoencoder with {} parameters (total {})".format(encoder_params + decoder_params, sum(encoder_params + decoder_params)))
 
     return {'encoder': encoder, 'decoder': decoder}

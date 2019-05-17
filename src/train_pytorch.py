@@ -9,7 +9,7 @@ import random
 
 import numpy as np
 from matplotlib import pyplot as plt
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import StepLR
 
 import src.midi_utils as midi_utils
 import src.plot_utils as plot_utils
@@ -31,7 +31,7 @@ print('with cuda support:', cuda_available)  # to know if it is available
 
 BASE_FOLDER = './'
 EPOCHS_QTY = 2000
-EPOCHS_TO_SAVE = [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200, 250, 300, 350, 400, 450]
+EPOCHS_TO_SAVE = []  # [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200, 250, 300, 350, 400, 450]
 LEARNING_RATE = 0.001  # learning rate
 CONTINUE_TRAIN = False
 GENERATE_ONLY = False
@@ -41,7 +41,7 @@ NUM_RAND_SONGS = 10
 
 # network params
 DROPOUT_RATE = 0.1
-BATCHNORM_MOMENTUM = 0.9  # weighted normalization with the past
+BATCHNORM_MOMENTUM = 1-0.9  # weighted normalization with the past (pytorch batchnorm is 1-keras_batchnorm momentum: https://github.com/pytorch/examples/issues/289)
 USE_VAE = False
 VAE_B1 = 0.02
 VAE_B2 = 0.1
@@ -269,8 +269,12 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
 
     parameters = list(encoder.parameters()) + list(decoder.parameters())
     criterion = F.binary_cross_entropy
-    optimizer = torch.optim.RMSprop(parameters, lr=learning_rate)
-    scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5, factor=0.1)
+    optimizer = torch.optim.RMSprop(parameters, lr=learning_rate, alpha=0.9, eps=1e-07)  # same params as keras
+    # optimizer = torch.optim.Adam(parameters, lr=learning_rate)
+    # optimizer = torch.optim.SGD(parameters, lr=learning_rate, momentum=0.9)
+
+    # scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5, factor=0.1)
+    scheduler = StepLR(optimizer, step_size=100, gamma=0.5)
 
     random_vectors = np.random.normal(0.0, 1.0, (NUM_RAND_SONGS, LATENT_SPACE_SIZE))
     np.save(BASE_FOLDER + 'data/interim/random_vectors.npy', random_vectors)
@@ -316,6 +320,7 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
             y_train_pt = y_train_pt.cuda()
             y_orig_pt = y_orig_pt.cuda()
 
+        optimizer.zero_grad()
         output = encoder(y_train_pt)
         output = decoder(output)
 
