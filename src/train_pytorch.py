@@ -25,6 +25,9 @@ print("Torch version: " + torch.__version__)
 
 import torch.nn.functional as F
 
+cuda_available = torch.cuda.is_available()
+print('with cuda support:', cuda_available)  # to know if it is available
+
 BASE_FOLDER = './'
 EPOCHS_QTY = 2000
 EPOCHS_TO_SAVE = [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200, 250, 300, 350, 400, 450]
@@ -228,6 +231,9 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
 
     y_test_song = torch.tensor(y_test_song, dtype=torch.float)
 
+    if cuda_available:
+        y_test_song = y_test_song.cuda()
+
     #  create model
     if CONTINUE_TRAIN or GENERATE_ONLY:
         print("Loading model...")
@@ -253,6 +259,10 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
     encoder = model['encoder']
     decoder = model['decoder']
 
+    if cuda_available:
+        encoder = encoder.cuda()
+        encoder = decoder.cuda()
+
     parameters = list(encoder.parameters()) + list(decoder.parameters())
     criterion = F.binary_cross_entropy
     optimizer = torch.optim.RMSprop(parameters, lr=learning_rate)
@@ -266,6 +276,9 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
         for save_epoch in range(20):
             x_test_song = x_train[save_epoch:save_epoch + 1]
             x_test_song = torch.tensor(x_test_song, dtype=torch.float)
+
+            if cuda_available:
+                x_test_song = x_test_song.cuda()
             y_song = decoder(encoder(x_test_song))[0]
             midi_utils.samples_to_midi(y_song, BASE_FOLDER + 'results/gt' + str(save_epoch) + '.mid')
         exit(0)
@@ -293,6 +306,10 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
 
         y_train_pt = torch.tensor(y_train, dtype=torch.float)
         y_orig_pt = torch.tensor(y_orig, dtype=torch.float)
+
+        if cuda_available:
+            y_train_pt = y_train_pt.cuda()
+            y_orig_pt = y_orig_pt.cuda()
 
         output = encoder(y_train_pt)
         output = decoder(output)
