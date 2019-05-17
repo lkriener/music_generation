@@ -27,8 +27,8 @@ class PyTorchModelLoader(AbstractModelLoader):
                                                              max_windows=MAX_WINDOWS,
                                                              batchnorm_momentum=BATCHNORM_MOMENTUM)
         # saving models (https://pytorch.org/tutorials/beginner/saving_loading_models.html)
-        self.model['encoder'].load_state_dict(torch.load(os.path.join(folder_name, 'encoder.pkl')))
-        self.model['decoder'].load_state_dict(torch.load(os.path.join(folder_name, 'decoder.pkl')))
+        self.model['encoder'].load_state_dict(torch.load(os.path.join(folder_name, 'encoder.pkl'), map_location='cpu'))
+        self.model['decoder'].load_state_dict(torch.load(os.path.join(folder_name, 'decoder.pkl'), map_location='cpu'))
 
         self.model['encoder'] = PyTorchModel(self.model['encoder'])
         self.model['decoder'] = PyTorchModel(self.model['decoder'])

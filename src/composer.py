@@ -18,9 +18,8 @@ import src.midi_utils as midi_utils
 
 # User constants
 base_folder = '.'
-# folder_name = os.path.join(*('results/history'.split('/')))
-folder_name = os.path.join(*('results/history'.split('/')))
-sub_dir_name = 'e1'
+model_folder = os.path.join(*('results/history'.split('/')))
+pca_stats_folder = 'e1'
 sample_rate = 48000
 note_dt = 2000  # num samples
 note_duration = 20000  # num samples
@@ -321,7 +320,7 @@ def draw_notes(screen, notes_surface):
     pygame.draw.rect(screen, (255, 255, 0), (x, y, 4, note_h), 0)
 
 
-def play(framework, model_folder_name):
+def play(framework, model_folder_name, pca_stats_folder_name):
     global mouse_pressed
     global current_notes
     global audio_pause
@@ -334,22 +333,22 @@ def play(framework, model_folder_name):
     print("Loading encoder...")
     if framework.lower() == 'keras':
         from src.composer.keras_model import KerasModelLoader
-        model_loader = KerasModelLoader(os.path.join(base_folder, folder_name))
+        model_loader = KerasModelLoader(os.path.join(base_folder, model_folder_name))
         encoder = model_loader.get_submodel('encoder')
         decoder = model_loader.get_submodel('decoder')
     elif 'torch' in framework.lower():
         from src.composer.pytorch_model import PyTorchModelLoader
-        model_loader = PyTorchModelLoader(os.path.join(base_folder, folder_name), (num_measures, note_w, note_h))
+        model_loader = PyTorchModelLoader(os.path.join(base_folder, model_folder_name), (num_measures, note_w, note_h))
         encoder = model_loader.get_submodel('encoder')
         decoder = model_loader.get_submodel('decoder')
     else:
-        raise Exception('Model could not be loaded from {} with framework {}'.format(folder_name, framework))
+        raise Exception('Model could not be loaded from {} with framework {}'.format(model_folder_name, framework))
 
     print("Loading gaussian/pca statistics...")
-    latent_means = np.load(os.path.join(base_folder, folder_name, model_folder_name, 'latent_means.npy'))
-    latent_stds = np.load(os.path.join(base_folder, folder_name, model_folder_name, 'latent_stds.npy'))
-    latent_pca_values = np.load(os.path.join(base_folder, folder_name, model_folder_name, 'latent_pca_values.npy'))
-    latent_pca_vectors = np.load(os.path.join(base_folder, folder_name, model_folder_name, 'latent_pca_vectors.npy'))
+    latent_means = np.load(os.path.join(base_folder, pca_stats_folder_name, 'latent_means.npy'))
+    latent_stds = np.load(os.path.join(base_folder, pca_stats_folder_name, 'latent_stds.npy'))
+    latent_pca_values = np.load(os.path.join(base_folder, pca_stats_folder_name, 'latent_pca_values.npy'))
+    latent_pca_vectors = np.load(os.path.join(base_folder, pca_stats_folder_name, 'latent_pca_vectors.npy'))
 
     print("Loading songs...")
     y_samples = np.load(os.path.join(base_folder, *'data/interim/samples.npy'.split('/')))
@@ -526,11 +525,13 @@ if __name__ == "__main__":
     # configure parser and parse arguments
     parser = argparse.ArgumentParser(description='Neural Composer: Play and edit music of a trained model.')
     parser.add_argument('--framework', default="keras", type=str, help='The framework the model was trained with. Either keras or pytorch')
-    parser.add_argument('--model', default=sub_dir_name, type=str, help='The folder the model is stored in.')
+    parser.add_argument('--pca_stats_folder', default=pca_stats_folder, type=str, help='The folder the model is stored in.')
+    parser.add_argument('--model_folder', default=model_folder, type=str, help='The folder the pca statistics are stored in.')
 
     base_folder = '..'
 
     args = parser.parse_args()
     framework = args.framework
-    sub_dir_name = args.model
-    play(framework, sub_dir_name)
+    model_folder = args.model_folder
+    pca_stats_folder = args.pca_stats_folder
+    play(framework, model_folder, pca_stats_folder)
