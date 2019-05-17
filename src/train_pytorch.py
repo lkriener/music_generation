@@ -9,6 +9,7 @@ import random
 
 import numpy as np
 from matplotlib import pyplot as plt
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 import src.midi_utils as midi_utils
 import src.plot_utils as plot_utils
@@ -268,7 +269,8 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
 
     parameters = list(encoder.parameters()) + list(decoder.parameters())
     criterion = F.binary_cross_entropy
-    optimizer = torch.optim.RMSprop(parameters, lr=learning_rate)
+    optimizer = torch.optim.Adam(parameters, lr=learning_rate)
+    scheduler = ReduceLROnPlateau(optimizer, 'min', patience=20, factor=0.5)
 
     random_vectors = np.random.normal(0.0, 1.0, (NUM_RAND_SONGS, LATENT_SPACE_SIZE))
     np.save(BASE_FOLDER + 'data/interim/random_vectors.npy', random_vectors)
@@ -326,6 +328,8 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
         loss = loss.data.cpu()
         train_loss.append(loss)
         print("Train loss: " + str(train_loss[-1].numpy()))
+
+        scheduler.step(np.mean(np.array(train_loss)))  # change the learning rate as soon as the loss does not drop anymore on average
 
         if WRITE_HISTORY:
             plot_losses(train_loss, BASE_FOLDER + 'results/history/losses.png', True)
