@@ -329,7 +329,7 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
         train_loss.append(loss)
         print("Train loss: " + str(train_loss[-1].numpy()))
 
-        scheduler.step(np.mean(np.array(train_loss)))  # change the learning rate as soon as the loss does not drop anymore on average
+        scheduler.step(loss)  # change the learning rate as soon as the loss plateaus
 
         if WRITE_HISTORY:
             plot_losses(train_loss, BASE_FOLDER + 'results/history/losses.png', True)
