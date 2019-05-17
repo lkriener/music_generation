@@ -159,7 +159,7 @@ def train(model, train_dataloader, val_dataloader, optimizer, n_epochs,
                 losses.append(loss.item())
         val_losses.append(np.mean(np.array(losses)))
         
-        if verbose:
+        if verbose and (epoch % 10 == 0):
             print('Epoch {}/{}: train_loss: {:.4f}, val_loss: {:.4f}'.format(epoch + 1, n_epochs, train_losses[-1], val_losses[-1]))
     return train_losses, val_losses, model_snapshot
 
