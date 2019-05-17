@@ -18,7 +18,8 @@ import src.midi_utils as midi_utils
 
 # User constants
 base_folder = '..'
-folder_name = os.path.join(*('results/history-20190515121400'.split('/')))
+# folder_name = os.path.join(*('results/history'.split('/')))
+folder_name = os.path.join(*('results/history'.split('/')))
 sub_dir_name = 'e1'
 sample_rate = 48000
 note_dt = 2000  # num samples
@@ -338,7 +339,7 @@ def play(framework, model_folder_name):
         decoder = model_loader.get_submodel('decoder')
     elif 'torch' in framework.lower():
         from src.composer.pytorch_model import PyTorchModelLoader
-        model_loader = PyTorchModelLoader(os.path.join(base_folder, folder_name))
+        model_loader = PyTorchModelLoader(os.path.join(base_folder, folder_name), (num_measures, note_w, note_h))
         encoder = model_loader.get_submodel('encoder')
         decoder = model_loader.get_submodel('decoder')
     else:
@@ -423,7 +424,7 @@ def play(framework, model_folder_name):
                     else:
                         random_song_ix = np.array([random_song_ix], dtype=np.int64)
                         latent_x = encoder.predict(random_song_ix, batch_size=1)[0]
-                        random_song_ix = (random_song_ix + 1) % model.layers[0].input_dim
+                        random_song_ix = (random_song_ix + 1) % encoder.layers[0].input_dim
 
                     if use_pca:
                         current_params = np.dot(latent_x - latent_means, latent_pca_vectors.T) / latent_pca_values

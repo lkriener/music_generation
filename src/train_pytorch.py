@@ -16,18 +16,14 @@ import src.models as models
 
 import argparse
 
-#  Load Keras
-print("Loading keras...")
+#  Load PyTorch
+print("Loading pytorch...")
 import os
-import keras
+import torch
+from torch.autograd import Variable
+import torch.nn.functional as F
 
-print("Keras version: " + keras.__version__)
-
-from keras.models import Model, load_model
-from keras.utils import plot_model
-from keras import backend as K
-from keras.losses import binary_crossentropy
-from keras.optimizers import Adam, RMSprop
+print("Torch version: " + torch.__version__)
 
 BASE_FOLDER = '../'
 EPOCHS_QTY = 2000
@@ -51,25 +47,9 @@ MAX_WINDOWS = 16  # the maximal number of measures a song can have
 LATENT_SPACE_SIZE = 120
 NUM_OFFSETS = 1
 
-K.set_image_data_format('channels_first')
-
 # Fix the random seed so that training comparisons are easier to make
 np.random.seed(0)
 random.seed(0)
-
-
-def vae_loss(x, x_decoded_mean, z_log_sigma_sq, z_mean):
-    """
-    Variational autoencoder loss function.
-    :param x:
-    :param x_decoded_mean:
-    :param z_log_sigma_sq:
-    :param z_mean:
-    :return:
-    """
-    xent_loss = binary_crossentropy(x, x_decoded_mean)
-    kl_loss = VAE_B2 * K.mean(1 + z_log_sigma_sq - K.square(z_mean) - K.exp(z_log_sigma_sq), axis=None)
-    return xent_loss - kl_loss
 
 
 def plot_losses(scores, f_name, on_top=True):
@@ -93,11 +73,11 @@ def plot_losses(scores, f_name, on_top=True):
     plt.savefig(f_name)
 
 
-def save_training_config(num_songs, model, learning_rate):
+def save_training_config(num_songs, optimizer, learning_rate):
     """
     Save configuration of training.
     :param num_songs:
-    :param model:
+    :param optimizer:
     :param learning_rate:
     :return:
     """
@@ -108,7 +88,7 @@ def save_training_config(num_songs, model, learning_rate):
         file_out.write('NUM_OFFSETS:         ' + str(NUM_OFFSETS) + '\n')
         file_out.write('DROPOUT_RATE:        ' + str(DROPOUT_RATE) + '\n')
         file_out.write('num_songs:           ' + str(num_songs) + '\n')
-        file_out.write('optimizer:           ' + type(model.optimizer).__name__ + '\n')
+        file_out.write('optimizer:           ' + type(optimizer).__name__ + '\n')
 
 
 def generate_random_songs(decoder, write_dir, random_vectors):
@@ -121,8 +101,9 @@ def generate_random_songs(decoder, write_dir, random_vectors):
     """
     for i in range(random_vectors.shape[0]):
         random_latent_x = random_vectors[i:i + 1]
-        y_song = decoder([random_latent_x, 0])[0]
-        midi_utils.samples_to_midi(y_song[0], write_dir + 'random_vectors' + str(i) + '.mid', 32)
+        random_latent_x = torch.tensor(random_latent_x, dtype=torch.float)
+        y_song = decoder(random_latent_x).detach().cpu().numpy()[0]
+        midi_utils.samples_to_midi(y_song, write_dir + 'random_vectors' + str(i) + '.mid', 32)
 
 
 def calculate_and_store_pca_statistics(encoder, y_orig, write_dir):
@@ -134,7 +115,7 @@ def calculate_and_store_pca_statistics(encoder, y_orig, write_dir):
     :param write_dir:
     :return:
     """
-    latent_x = np.squeeze(encoder.predict(y_orig))
+    latent_x = np.squeeze(encoder(y_orig).detach().cpu().numpy())
 
     latent_mean = np.mean(latent_x, axis=0)
     latent_stds = np.std(latent_x, axis=0)
@@ -245,36 +226,36 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
     y_test_song = np.copy(y_train[test_ix: test_ix + 1])
     midi_utils.samples_to_midi(y_test_song[0], BASE_FOLDER + 'data/interim/gt.mid')
 
+    y_test_song = torch.tensor(y_test_song, dtype=torch.float)
+
     #  create model
     if CONTINUE_TRAIN or GENERATE_ONLY:
         print("Loading model...")
-        model = torch.load(BASE_FOLDER + 'results/history/model.h5')
+        model = models.create_pytorch_autoencoder_model(input_shape=y_shape[1:],
+                                                        latent_space_size=LATENT_SPACE_SIZE,
+                                                        dropout_rate=DROPOUT_RATE,
+                                                        max_windows=MAX_WINDOWS,
+                                                        batchnorm_momentum=BATCHNORM_MOMENTUM)
+        # saving models (https://pytorch.org/tutorials/beginner/saving_loading_models.html)
+        model['encoder'].load_state_dict(torch.load(BASE_FOLDER + 'results/history/encoder.pkl'))
+        model['decoder'].load_state_dict(torch.load(BASE_FOLDER + 'results/history/decoder.pkl'))
     else:
         print("Building model...")
 
-        model = models.create_keras_autoencoder_model(input_shape=y_shape[1:],
-                                                      latent_space_size=LATENT_SPACE_SIZE,
-                                                      dropout_rate=DROPOUT_RATE,
-                                                      max_windows=MAX_WINDOWS,
-                                                      batchnorm_momentum=BATCHNORM_MOMENTUM,
-                                                      use_vae=USE_VAE,
-                                                      vae_b1=VAE_B1)
-
-        if USE_VAE:
-            model.compile(optimizer=Adam(lr=learning_rate), loss=vae_loss)
-        else:
-            model.compile(optimizer=RMSprop(lr=learning_rate), loss='binary_crossentropy')
-
-        # plot model with graphvis if installed
-        try:
-            plot_model(model, to_file='results/model.png', show_shapes=True)
-        except OSError as e:
-            print(e)
+        model = models.create_pytorch_autoencoder_model(input_shape=y_shape[1:],
+                                                        latent_space_size=LATENT_SPACE_SIZE,
+                                                        dropout_rate=DROPOUT_RATE,
+                                                        max_windows=MAX_WINDOWS,
+                                                        batchnorm_momentum=BATCHNORM_MOMENTUM)
 
     #  train
     print("Referencing sub-models...")
-    decoder = K.function([model.get_layer('decoder').input, K.learning_phase()], [model.layers[-1].output])
-    encoder = Model(inputs=model.input, outputs=model.get_layer('encoder').output)
+    encoder = model['encoder']
+    decoder = model['decoder']
+
+    parameters = list(encoder.parameters()) + list(decoder.parameters())
+    criterion = F.binary_cross_entropy
+    optimizer = torch.optim.RMSprop(parameters, lr=learning_rate)
 
     random_vectors = np.random.normal(0.0, 1.0, (NUM_RAND_SONGS, LATENT_SPACE_SIZE))
     np.save(BASE_FOLDER + 'data/interim/random_vectors.npy', random_vectors)
@@ -284,16 +265,20 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
         generate_normalized_random_songs(y_orig, encoder, decoder, random_vectors, BASE_FOLDER + 'results/')
         for save_epoch in range(20):
             x_test_song = x_train[save_epoch:save_epoch + 1]
-            y_song = model.predict(x_test_song, batch_size=BATCH_SIZE)[0]
+            x_test_song = torch.tensor(x_test_song, dtype=torch.float)
+            y_song = decoder(encoder(x_test_song))[0]
             midi_utils.samples_to_midi(y_song, BASE_FOLDER + 'results/gt' + str(save_epoch) + '.mid')
         exit(0)
 
-    save_training_config(songs_qty, model, learning_rate)
+    save_training_config(songs_qty, optimizer, learning_rate)
     print("Training model...")
     train_loss = []
     offset = 0
 
     for epoch in range(epochs_qty):
+        encoder.train()
+        decoder.train()
+
         print("Training epoch: ", epoch, "of", epochs_qty)
         # produce songs from its samples with a different starting point of the song each time
         song_start_ix = 0
@@ -306,12 +291,21 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
         assert (song_end_ix == samples_qty)
         offset += 1
 
-        history = model.fit(y_train, y_train, batch_size=BATCH_SIZE, epochs=1)  # train model on reconstruction loss
+        y_train_pt = torch.tensor(y_train, dtype=torch.float)
+        y_orig_pt = torch.tensor(y_orig, dtype=torch.float)
+
+        output = encoder(y_train_pt)
+        output = decoder(output)
+
+        loss = criterion(output, y_train_pt)
+
+        loss.backward()
+        optimizer.step()
 
         # store last loss
-        loss = history.history["loss"][-1]
+        loss = loss.data.cpu()
         train_loss.append(loss)
-        print("Train loss: " + str(train_loss[-1]))
+        print("Train loss: " + str(train_loss[-1].numpy()))
 
         if WRITE_HISTORY:
             plot_losses(train_loss, BASE_FOLDER + 'results/history/losses.png', True)
@@ -328,18 +322,22 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
                 if not os.path.exists(write_dir):
                     os.makedirs(write_dir)
                 write_dir += '/'
-                model.save(BASE_FOLDER + 'results/history/model.h5')
+                torch.save(encoder.state_dict(), BASE_FOLDER + 'results/history/encoder.pkl')
+                torch.save(decoder.state_dict(), BASE_FOLDER + 'results/history/decoder.pkl')
             else:
-                model.save(BASE_FOLDER + 'results/model.h5')
+                torch.save(encoder.state_dict(), BASE_FOLDER + 'results/encoder.pkl')
+                torch.save(decoder.state_dict(), BASE_FOLDER + 'results/decoder.pkl')
 
             print("...Saved.")
 
-            y_song = model.predict(y_test_song, batch_size=BATCH_SIZE)[0]
+            encoder.eval()
+            decoder.eval()
+            y_song = decoder(encoder(y_test_song))[0]
 
-            plot_utils.plot_samples(write_dir + 'test', y_song)
+            plot_utils.plot_samples(write_dir + 'test', y_song.detach().cpu().numpy())
             midi_utils.samples_to_midi(y_song, write_dir + 'test.mid')
 
-            generate_normalized_random_songs(y_orig, encoder, decoder, random_vectors, write_dir)
+            generate_normalized_random_songs(y_orig_pt, encoder, decoder, random_vectors, write_dir)
 
     print("...Done.")
 
