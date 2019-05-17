@@ -270,7 +270,7 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
     parameters = list(encoder.parameters()) + list(decoder.parameters())
     criterion = F.binary_cross_entropy
     optimizer = torch.optim.RMSprop(parameters, lr=learning_rate)
-    scheduler = ReduceLROnPlateau(optimizer, 'min', patience=20, factor=0.5)
+    scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5, factor=0.1)
 
     random_vectors = np.random.normal(0.0, 1.0, (NUM_RAND_SONGS, LATENT_SPACE_SIZE))
     np.save(BASE_FOLDER + 'data/interim/random_vectors.npy', random_vectors)
