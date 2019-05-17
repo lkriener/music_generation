@@ -261,7 +261,7 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
 
     if cuda_available:
         encoder = encoder.cuda()
-        encoder = decoder.cuda()
+        decoder = decoder.cuda()
 
     parameters = list(encoder.parameters()) + list(decoder.parameters())
     criterion = F.binary_cross_entropy
