@@ -105,6 +105,9 @@ def generate_random_songs(decoder, write_dir, random_vectors):
     for i in range(random_vectors.shape[0]):
         random_latent_x = random_vectors[i:i + 1]
         random_latent_x = torch.tensor(random_latent_x, dtype=torch.float)
+
+        if cuda_available:
+            random_latent_x = random_latent_x.cuda()
         y_song = decoder(random_latent_x).detach().cpu().numpy()[0]
         midi_utils.samples_to_midi(y_song, write_dir + 'random_vectors' + str(i) + '.mid', 32)
 
