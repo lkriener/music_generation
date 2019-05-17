@@ -29,7 +29,7 @@ from keras import backend as K
 from keras.losses import binary_crossentropy
 from keras.optimizers import Adam, RMSprop
 
-BASE_FOLDER = '../'
+BASE_FOLDER = './'
 EPOCHS_QTY = 2000
 EPOCHS_TO_SAVE = [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200, 250, 300, 350, 400, 450]
 LEARNING_RATE = 0.001  # learning rate
@@ -248,7 +248,7 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
     #  create model
     if CONTINUE_TRAIN or GENERATE_ONLY:
         print("Loading model...")
-        model = torch.load(BASE_FOLDER + 'results/history/model.h5')
+        model = load_model(BASE_FOLDER + 'results/history/model.h5')
     else:
         print("Building model...")
 
@@ -351,6 +351,8 @@ if __name__ == "__main__":
     parser.add_argument('--lengths_path', default='data/interim/lengths.npy', type=str, help='Path to sample lengths numpy array.')
     parser.add_argument('--epochs_qty', default=EPOCHS_QTY, type=int, help='The number of epochs to be trained.')
     parser.add_argument('--learning_rate', default=LEARNING_RATE, type=float, help='The learning rate to train the model.')
+
+    BASE_FOLDER = '../'
 
     args = parser.parse_args()
     epochs_qty = args.epochs_qty

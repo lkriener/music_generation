@@ -17,7 +17,7 @@ import pygame
 import src.midi_utils as midi_utils
 
 # User constants
-base_folder = '..'
+base_folder = '.'
 # folder_name = os.path.join(*('results/history'.split('/')))
 folder_name = os.path.join(*('results/history'.split('/')))
 sub_dir_name = 'e1'
@@ -527,6 +527,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Neural Composer: Play and edit music of a trained model.')
     parser.add_argument('--framework', default="keras", type=str, help='The framework the model was trained with. Either keras or pytorch')
     parser.add_argument('--model', default=sub_dir_name, type=str, help='The folder the model is stored in.')
+
+    base_folder = '..'
 
     args = parser.parse_args()
     framework = args.framework

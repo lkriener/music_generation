@@ -12,6 +12,8 @@ import argparse
 import src.midi_utils as midi_utils
 import src.music_utils as music_utils
 
+BASE_FOLDER = '.'
+
 
 def preprocess_songs(data_folders):
     """
@@ -66,8 +68,8 @@ def preprocess_songs(data_folders):
     print("Saving " + str(len(all_samples)) + " samples...")
     all_samples = np.array(all_samples, dtype=np.uint8)  # reduce size when saving
     all_lengths = np.array(all_lengths, dtype=np.uint32)
-    np.save('../data/interim/samples.npy', all_samples)
-    np.save('../data/interim/lengths.npy', all_lengths)
+    np.save(os.path.join(BASE_FOLDER, *('data/interim/samples.npy'.split('/')), all_samples))
+    np.save(os.path.join(BASE_FOLDER, *('/data/interim/lengths.npy'.split('/')), all_lengths))
     print('Done: ', succeeded, 'succeded,', ignored, 'ignored,', failed, 'failed of', succeeded + ignored + failed, 'in total')
 
 
@@ -76,5 +78,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Load songs, preprocess them and put them into a dataset.')
     parser.add_argument('--data_folder', default=["../data/raw/bach"], type=str, help='The path to the midi data', action='append')
 
+    BASE_FOLDER = '..'
     args = parser.parse_args()
     preprocess_songs(args.data_folder)

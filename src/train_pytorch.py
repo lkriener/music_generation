@@ -20,12 +20,12 @@ import argparse
 print("Loading pytorch...")
 import os
 import torch
-from torch.autograd import Variable
-import torch.nn.functional as F
 
 print("Torch version: " + torch.__version__)
 
-BASE_FOLDER = '../'
+import torch.nn.functional as F
+
+BASE_FOLDER = './'
 EPOCHS_QTY = 2000
 EPOCHS_TO_SAVE = [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200, 250, 300, 350, 400, 450]
 LEARNING_RATE = 0.001  # learning rate
@@ -349,6 +349,8 @@ if __name__ == "__main__":
     parser.add_argument('--lengths_path', default='data/interim/lengths.npy', type=str, help='Path to sample lengths numpy array.')
     parser.add_argument('--epochs_qty', default=EPOCHS_QTY, type=int, help='The number of epochs to be trained.')
     parser.add_argument('--learning_rate', default=LEARNING_RATE, type=float, help='The learning rate to train the model.')
+
+    BASE_FOLDER = '../'
 
     args = parser.parse_args()
     epochs_qty = args.epochs_qty
