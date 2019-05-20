@@ -124,8 +124,8 @@ def create_keras_autoencoder_model(input_shape, latent_space_size, dropout_rate,
     from keras.layers.normalization import BatchNormalization
     from keras.models import Model
 
-    ENCODER_LAYER_DIMS = [2000, 200, 1600]
-    DECODER_LAYER_DIMS = [1600, 200, 2000]
+    ENCODER_LAYER_DIMS = [400, 200, 1600]
+    DECODER_LAYER_DIMS = [1600, 200, 400]
 
     # ENCODER
 
