@@ -15,7 +15,7 @@ import src.music_utils as music_utils
 BASE_FOLDER = '.'
 
 
-def preprocess_songs(data_folders):
+def preprocess_songs(data_folders, verbose=2):
     """
     Load and preprocess the songs from the data folders and turn them into a dataset of samples/pitches and lengths of the tones.
     :param data_folders:
@@ -44,14 +44,16 @@ def preprocess_songs(data_folders):
                 try:
                     samples = midi_utils.midi_to_samples(path)
                 except Exception as e:
-                    print("ERROR ", path)
-                    print(e)
+                    if verbose == 2:
+                        print("ERROR ", path)
+                        print(e)
                     failed += 1
                     continue
 
                 # if the midi does not produce the minimal number of sample/measures, we skip it
                 if len(samples) < 16:
-                    print('WARN', path, 'Sample too short, unused')
+                    if verbose == 2:
+                        print('WARN', path, 'Sample too short, unused')
                     ignored += 1
                     continue
 
@@ -59,7 +61,8 @@ def preprocess_songs(data_folders):
                 samples, lengths = music_utils.generate_centered_transpose(samples)
                 all_samples += samples
                 all_lengths += lengths
-                print('SUCCESS', path, len(samples), 'samples')
+                if verbose == 2:
+                    print('SUCCESS', path, len(samples), 'samples')
                 succeeded += 1
 
     assert (sum(all_lengths) == len(all_samples))  # assert equal number of samples and lengths
@@ -68,8 +71,8 @@ def preprocess_songs(data_folders):
     print("Saving " + str(len(all_samples)) + " samples...")
     all_samples = np.array(all_samples, dtype=np.uint8)  # reduce size when saving
     all_lengths = np.array(all_lengths, dtype=np.uint32)
-    np.save(os.path.join(BASE_FOLDER, *('data/interim/samples.npy'.split('/')), all_samples))
-    np.save(os.path.join(BASE_FOLDER, *('/data/interim/lengths.npy'.split('/')), all_lengths))
+    np.save(os.path.join(BASE_FOLDER, *('data/interim/samples.npy'.split('/'))), all_samples)
+    np.save(os.path.join(BASE_FOLDER, *('data/interim/lengths.npy'.split('/'))), all_lengths)
     print('Done: ', succeeded, 'succeded,', ignored, 'ignored,', failed, 'failed of', succeeded + ignored + failed, 'in total')
 
 
