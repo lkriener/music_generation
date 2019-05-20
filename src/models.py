@@ -13,9 +13,9 @@ def vae_sampling(args):
     return z_mean + K.exp(z_log_sigma_sq * 0.5) * epsilon
 
 
-def create_keras_autoencoder_model(input_shape, latent_space_size, dropout_rate, max_windows, batchnorm_momentum, use_vae=False, vae_b1=0.02):
+def create_keras_double_autoencoder_model(input_shape, latent_space_size, dropout_rate, max_windows, batchnorm_momentum, use_vae=False, vae_b1=0.02):
     """
-    Create larger autoencoder with the options of making it variational and embedding.
+    Create double autoencoder in keras with the options of making it variational and embedding.
     :param input_shape:
     :param latent_space_size:
     :param dropout_rate:
@@ -30,22 +30,27 @@ def create_keras_autoencoder_model(input_shape, latent_space_size, dropout_rate,
     from keras.layers.normalization import BatchNormalization
     from keras.models import Model
 
+    ENCODER_LAYER_DIMS = [2000, 200, 1600]
+    DECODER_LAYER_DIMS = [1600, 200, 2000]
+
+    # ENCODER
+
     x_in = Input(shape=input_shape)
     print((None,) + input_shape)
 
     x = Reshape((input_shape[0], -1))(x_in)
     print(K.int_shape(x))
 
-    x = TimeDistributed(Dense(2000, activation='relu'))(x)
+    x = TimeDistributed(Dense(ENCODER_LAYER_DIMS[0], activation='relu'))(x)
     print(K.int_shape(x))
 
-    x = TimeDistributed(Dense(200, activation='relu'))(x)
+    x = TimeDistributed(Dense(ENCODER_LAYER_DIMS[1], activation='relu'))(x)
     print(K.int_shape(x))
 
     x = Flatten()(x)
     print(K.int_shape(x))
 
-    x = Dense(1600, activation='relu')(x)
+    x = Dense(ENCODER_LAYER_DIMS[2], activation='relu')(x)
     print(K.int_shape(x))
 
     if use_vae:
@@ -57,25 +62,30 @@ def create_keras_autoencoder_model(input_shape, latent_space_size, dropout_rate,
         x = BatchNormalization(momentum=batchnorm_momentum, name='encoder')(x)
     print(K.int_shape(x))
 
+    # ENCODER END
+
     # LATENT SPACE
 
-    x = Dense(1600, name='decoder')(x)
+    # DECODER
+    x = Dense(DECODER_LAYER_DIMS[0], name='decoder')(x)
     x = BatchNormalization(momentum=batchnorm_momentum)(x)
     x = Activation('relu')(x)
     if dropout_rate > 0:
         x = Dropout(dropout_rate)(x)
     print(K.int_shape(x))
 
-    x = Dense(max_windows * 200)(x)
+    x = Dense(max_windows * DECODER_LAYER_DIMS[1])(x)
     print(K.int_shape(x))
-    x = Reshape((max_windows, 200))(x)
+
+    x = Reshape((max_windows, DECODER_LAYER_DIMS[1]))(x)
+
     x = TimeDistributed(BatchNormalization(momentum=batchnorm_momentum))(x)
     x = Activation('relu')(x)
     if dropout_rate > 0:
         x = Dropout(dropout_rate)(x)
     print(K.int_shape(x))
 
-    x = TimeDistributed(Dense(2000))(x)
+    x = TimeDistributed(Dense(DECODER_LAYER_DIMS[2]))(x)
     x = TimeDistributed(BatchNormalization(momentum=batchnorm_momentum))(x)
     x = Activation('relu')(x)
     if dropout_rate > 0:
@@ -84,8 +94,11 @@ def create_keras_autoencoder_model(input_shape, latent_space_size, dropout_rate,
 
     x = TimeDistributed(Dense(input_shape[1] * input_shape[2], activation='sigmoid'))(x)
     print(K.int_shape(x))
+
     x = Reshape((input_shape[0], input_shape[1], input_shape[2]))(x)
     print(K.int_shape(x))
+
+    # DECODER END
 
     model = Model(x_in, x)
 
@@ -94,7 +107,110 @@ def create_keras_autoencoder_model(input_shape, latent_space_size, dropout_rate,
     return model
 
 
-def create_pytorch_autoencoder_model(input_shape, latent_space_size, dropout_rate, max_windows, batchnorm_momentum):
+def create_keras_autoencoder_model(input_shape, latent_space_size, dropout_rate, max_windows, batchnorm_momentum, use_vae=False, vae_b1=0.02):
+    """
+    Create simple autoencoder in keras with the options of making it variational and embedding.
+    :param input_shape:
+    :param latent_space_size:
+    :param dropout_rate:
+    :param max_windows:
+    :param batchnorm_momentum:
+    :param use_vae:
+    :param vae_b1:
+    :return:
+    """
+    from keras import backend as K
+    from keras.layers import Input, Dense, Activation, Dropout, Flatten, Reshape, TimeDistributed, Lambda
+    from keras.layers.normalization import BatchNormalization
+    from keras.models import Model
+
+    ENCODER_LAYER_DIMS = [2000, 200, 1600]
+    DECODER_LAYER_DIMS = [1600, 200, 2000]
+
+    # ENCODER
+
+    x_in = Input(shape=input_shape)
+    print((None,) + input_shape)
+
+    x = Reshape((input_shape[0], -1))(x_in)
+    print(K.int_shape(x))
+
+    x = Flatten()(x)
+    print(K.int_shape(x))
+
+    x = Dense(ENCODER_LAYER_DIMS[0], activation='relu')(x)
+    print(K.int_shape(x))
+
+    x = Dense(ENCODER_LAYER_DIMS[1], activation='relu')(x)
+    print(K.int_shape(x))
+
+    x = Dense(ENCODER_LAYER_DIMS[2], activation='relu')(x)
+    print(K.int_shape(x))
+
+    if use_vae:
+        z_mean = Dense(latent_space_size)(x)
+        z_log_sigma_sq = Dense(latent_space_size)(x)
+        x = Lambda(vae_sampling, output_shape=(latent_space_size,), name='encoder')([z_mean, z_log_sigma_sq, vae_b1])
+    else:
+        x = Dense(latent_space_size)(x)
+        x = BatchNormalization(momentum=batchnorm_momentum, name='encoder')(x)
+    print(K.int_shape(x))
+
+    # ENCODER END
+
+    # LATENT SPACE
+
+    # DECODER
+    x = Dense(DECODER_LAYER_DIMS[0], name='decoder')(x)
+    x = BatchNormalization(momentum=batchnorm_momentum)(x)
+    x = Activation('relu')(x)
+    if dropout_rate > 0:
+        x = Dropout(dropout_rate)(x)
+    print(K.int_shape(x))
+
+    x = Dense(max_windows * DECODER_LAYER_DIMS[1])(x)
+    print(K.int_shape(x))
+
+    x = BatchNormalization(momentum=batchnorm_momentum)(x)
+    x = Activation('relu')(x)
+    if dropout_rate > 0:
+        x = Dropout(dropout_rate)(x)
+    print(K.int_shape(x))
+
+    x = Dense(DECODER_LAYER_DIMS[2])(x)
+    x = BatchNormalization(momentum=batchnorm_momentum)(x)
+    x = Activation('relu')(x)
+    if dropout_rate > 0:
+        x = Dropout(dropout_rate)(x)
+    print(K.int_shape(x))
+
+    x = Dense(input_shape[0] * input_shape[1] * input_shape[2], activation='sigmoid')(x)
+    print(K.int_shape(x))
+
+    x = Reshape((input_shape[0], input_shape[1], input_shape[2]))(x)
+    print(K.int_shape(x))
+
+    # DECODER END
+
+    model = Model(x_in, x)
+
+    print(model.summary())
+
+    return model
+
+
+def create_pytorch_double_autoencoder_model(input_shape, latent_space_size, dropout_rate, max_windows, batchnorm_momentum):
+    """
+    Create double autoencoder in pytorch with the options of making it variational and embedding.
+    :param input_shape:
+    :param latent_space_size:
+    :param dropout_rate:
+    :param max_windows:
+    :param batchnorm_momentum:
+    :param use_vae:
+    :param vae_b1:
+    :return:
+    """
 
     import torch.nn as nn
     # Create Encoder and Decoder that subclasses nn.Module
