@@ -180,7 +180,7 @@ def generate_normalized_random_songs(y_orig, encoder, decoder, random_vectors, w
     plt.savefig(write_dir + 'latent_stds.png')
 
 
-def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/lengths.npy', epochs_qty=EPOCHS_QTY, learning_rate=LEARNING_RATE, save_model_epochs=EPOCHS_TO_SAVE_MODEL):
+def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/lengths.npy', epochs_qty=EPOCHS_QTY, learning_rate=LEARNING_RATE, save_model_epochs=EPOCHS_TO_SAVE_MODEL, verbosity=2):
     """
     Train model.
     :return:
@@ -195,8 +195,7 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
     # Load dataset into memory
     print("Loading Data...")
     if not os.path.exists(samples_path) or not os.path.exists(lengths_path):
-        print('No input data found, run preprocess_songs.py first.')
-        exit(1)
+        raise Exception('No input data found, run preprocess_songs.py first.')
 
     y_samples = np.load(samples_path)
     y_lengths = np.load(lengths_path)
@@ -302,7 +301,9 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
         encoder.train()
         decoder.train()
 
-        print("Training epoch: ", epoch, "of", epochs_qty)
+        if verbosity == 2 or epoch % 100 == 0:
+            print("Training epoch: ", epoch, "of", epochs_qty)
+
         # produce songs from its samples with a different starting point of the song each time
         song_start_ix = 0
         for song_ix in range(songs_qty):
@@ -333,7 +334,9 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
         # store last loss
         loss = loss.data.cpu()
         train_loss.append(loss)
-        print("Train loss: " + str(train_loss[-1].numpy()))
+
+        if verbosity == 2 or epoch % 100 == 0:
+            print("Train loss: " + str(train_loss[-1].numpy()))
 
         scheduler.step(loss)  # change the learning rate as soon as the loss plateaus
 
@@ -358,7 +361,8 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
 
                 store_stats = True
 
-                print("...Saved model separately to keep current state.")
+                if verbosity == 2:
+                    print("...Saved model separately to keep current state.")
 
         if save_epoch in EPOCHS_TO_SAVE_PCA_STATS or (save_epoch % 100 == 0) or save_epoch == epochs_qty or store_stats:
             write_dir = ''
@@ -374,7 +378,8 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
                 torch.save(encoder.state_dict(), BASE_FOLDER + 'results/encoder.pkl')
                 torch.save(decoder.state_dict(), BASE_FOLDER + 'results/decoder.pkl')
 
-            print("...Saved PCA statistics and last model.")
+            if verbosity == 2:
+                print("...Saved PCA statistics and last model.")
 
             encoder.eval()
             decoder.eval()

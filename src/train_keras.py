@@ -209,8 +209,7 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
     # Load dataset into memory
     print("Loading Data...")
     if not os.path.exists(samples_path) or not os.path.exists(lengths_path):
-        print('No input data found, run preprocess_songs.py first.')
-        exit(1)
+        raise Exception('No input data found, run preprocess_songs.py first.')
 
     y_samples = np.load(samples_path)
     y_lengths = np.load(lengths_path)
