@@ -31,7 +31,7 @@ from keras.optimizers import Adam, RMSprop
 
 BASE_FOLDER = './'
 EPOCHS_QTY = 2000
-EPOCHS_TO_SAVE_PCA_STATS = [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200, 250, 300, 350, 400, 450]
+EPOCHS_TO_SAVE_PCA_STATS = []  # [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200, 250, 300, 350, 400, 450]
 EPOCHS_TO_SAVE_MODEL = []
 LEARNING_RATE = 0.001  # learning rate
 CONTINUE_TRAIN = False
@@ -90,6 +90,7 @@ def plot_losses(scores, f_name, on_top=True):
     plt.plot(scores)
     plt.ylim([0.0, 0.009])
     plt.xlabel('Epoch')
+    plt.ylabel('Loss')
     loc = ('upper right' if on_top else 'lower right')
     plt.draw()
     plt.savefig(f_name)
@@ -193,7 +194,7 @@ def generate_normalized_random_songs(y_orig, encoder, decoder, random_vectors, w
     plt.savefig(write_dir + 'latent_stds.png')
 
 
-def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/lengths.npy', use_double_autoencoder=USE_DOUBLE_AUTOENCODER, epochs_qty=EPOCHS_QTY, learning_rate=LEARNING_RATE):
+def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/lengths.npy', use_double_autoencoder=USE_DOUBLE_AUTOENCODER, epochs_qty=EPOCHS_QTY, learning_rate=LEARNING_RATE, save_model_epochs=EPOCHS_TO_SAVE_MODEL):
     """
     Train model.
     :return:
@@ -332,7 +333,7 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
         # save model periodically either to not lose the last model or for explicitly keeping the state of a certain epoch
         save_epoch = epoch + 1
         store_stats = False
-        if save_epoch in EPOCHS_TO_SAVE_MODEL or (save_epoch % 100 == 0) or save_epoch == epochs_qty:
+        if save_epoch in save_model_epochs:
             write_dir = ''
             if WRITE_HISTORY:
                 # Create folder to save models into
@@ -340,7 +341,7 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
                 if not os.path.exists(write_dir):
                     os.makedirs(write_dir)
                 write_dir += '/'
-                model.save(BASE_FOLDER + write_dir + 'model.h5')
+                model.save(write_dir + 'model.h5')
 
                 store_stats = True
 
@@ -380,6 +381,7 @@ if __name__ == "__main__":
     parser.add_argument('--lengths_path', default='data/interim/lengths.npy', type=str, help='Path to sample lengths numpy array.')
     parser.add_argument('--epochs_qty', default=EPOCHS_QTY, type=int, help='The number of epochs to be trained.')
     parser.add_argument('--learning_rate', default=LEARNING_RATE, type=float, help='The learning rate to train the model.')
+    parser.add_argument('--save_model_epochs', default=[], type=int, action='append', help='The epochs at which the model with its stats should be saved.')
 
     BASE_FOLDER = '../'
 
@@ -389,4 +391,10 @@ if __name__ == "__main__":
     use_double_autoencoder = args.use_double_autoencoder
     epochs_qty = args.epochs_qty
     learning_rate = args.learning_rate
-    train(samples_path, lengths_path, use_double_autoencoder, epochs_qty, learning_rate)
+
+    if args.save_model_epochs is []:
+        save_model_epochs = EPOCHS_TO_SAVE_MODEL
+    else:
+        save_model_epochs = args.save_model_epochs
+
+    train(samples_path, lengths_path, use_double_autoencoder, epochs_qty, learning_rate, save_model_epochs)

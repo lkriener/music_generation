@@ -280,7 +280,7 @@ def draw_sliders(screen):
 
 def get_pianoroll_from_notes(notes):
     """
-    Draw piano roll of notes.
+    Get piano roll of notes.
     :param notes:
     :return:
     """

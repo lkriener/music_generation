@@ -401,8 +401,14 @@ if __name__ == "__main__":
     BASE_FOLDER = '../'
 
     args = parser.parse_args()
-    epochs_qty = args.epochs_qty
-    learning_rate = args.learning_rate
     samples_path = args.samples_path
     lengths_path = args.lengths_path
-    train(samples_path, lengths_path, epochs_qty, learning_rate)
+    epochs_qty = args.epochs_qty
+    learning_rate = args.learning_rate
+
+    if args.save_model_epochs is []:
+        save_model_epochs = EPOCHS_TO_SAVE_MODEL
+    else:
+        save_model_epochs = args.save_model_epochs
+
+    train(samples_path, lengths_path, epochs_qty, learning_rate, save_model_epochs)

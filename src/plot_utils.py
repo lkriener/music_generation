@@ -11,6 +11,8 @@ import numpy as np
 
 
 def plot_sample(file_name, sample, threshold=None):
+    sample = np.rot90(sample)  # rotate image before plotting
+
     if threshold is not None:
         inverted = np.where(sample > threshold, 0, 1)
     else:
