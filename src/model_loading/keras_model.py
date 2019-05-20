@@ -14,7 +14,7 @@ print("Keras version: " + keras.__version__)
 
 K.set_image_data_format('channels_first')
 
-from src.composer.model_abstraction import AbstractModelLoader, AbstractModel
+from src.model_loading.model_abstraction import AbstractModelLoader, AbstractModel
 
 
 class KerasModelLoader(AbstractModelLoader):

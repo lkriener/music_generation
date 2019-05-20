@@ -180,7 +180,7 @@ def generate_normalized_random_songs(y_orig, encoder, decoder, random_vectors, w
     plt.savefig(write_dir + 'latent_stds.png')
 
 
-def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/lengths.npy', epochs_qty=EPOCHS_QTY, learning_rate=LEARNING_RATE):
+def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/lengths.npy', epochs_qty=EPOCHS_QTY, learning_rate=LEARNING_RATE, save_model_epochs=EPOCHS_TO_SAVE_MODEL):
     """
     Train model.
     :return:
@@ -345,7 +345,7 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
         # save model periodically either to not lose the last model or for explicitly keeping the state of a certain epoch
         save_epoch = epoch + 1
         store_stats = False
-        if save_epoch in EPOCHS_TO_SAVE_MODEL or (save_epoch % 100 == 0) or save_epoch == epochs_qty:
+        if save_epoch in save_model_epochs:
             write_dir = ''
             if WRITE_HISTORY:
                 # Create folder to save models into
@@ -353,8 +353,8 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
                 if not os.path.exists(write_dir):
                     os.makedirs(write_dir)
                 write_dir += '/'
-                torch.save(encoder.state_dict(), BASE_FOLDER + write_dir +'encoder.pkl')
-                torch.save(decoder.state_dict(), BASE_FOLDER + write_dir + 'decoder.pkl')
+                torch.save(encoder.state_dict(), write_dir + 'encoder.pkl')
+                torch.save(decoder.state_dict(), write_dir + 'decoder.pkl')
 
                 store_stats = True
 
@@ -397,6 +397,7 @@ if __name__ == "__main__":
     parser.add_argument('--lengths_path', default='data/interim/lengths.npy', type=str, help='Path to sample lengths numpy array.')
     parser.add_argument('--epochs_qty', default=EPOCHS_QTY, type=int, help='The number of epochs to be trained.')
     parser.add_argument('--learning_rate', default=LEARNING_RATE, type=float, help='The learning rate to train the model.')
+    parser.add_argument('--save_model_epochs', default=[], type=int, action='append', help='The epochs at which the model with its stats should be saved.')
 
     BASE_FOLDER = '../'
 

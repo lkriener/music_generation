@@ -332,12 +332,12 @@ def play(framework, model_folder_name, pca_stats_folder_name):
 
     print("Loading encoder...")
     if framework.lower() == 'keras':
-        from src.composer.keras_model import KerasModelLoader
+        from src.model_loading.keras_model import KerasModelLoader
         model_loader = KerasModelLoader(os.path.join(base_folder, model_folder_name))
         encoder = model_loader.get_submodel('encoder')
         decoder = model_loader.get_submodel('decoder')
     elif 'torch' in framework.lower():
-        from src.composer.pytorch_model import PyTorchModelLoader
+        from src.model_loading.pytorch_model import PyTorchModelLoader
         model_loader = PyTorchModelLoader(os.path.join(base_folder, model_folder_name), (num_measures, note_w, note_h))
         encoder = model_loader.get_submodel('encoder')
         decoder = model_loader.get_submodel('decoder')

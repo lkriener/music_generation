@@ -5,7 +5,7 @@
 Neural network model and loader implementation for pytorch.
 """
 
-from src.composer.model_abstraction import AbstractModelLoader, AbstractModel
+from src.model_loading.model_abstraction import AbstractModelLoader, AbstractModel
 import src.models as models
 import torch
 import os
