@@ -353,7 +353,6 @@ def unscale_pianoroll(scaled_pianoroll, global_lower):
 
 
 
-# Defining method to make mini-batches for training
 def get_pianoroll_batches(arr, batch_size, seq_length):
     '''
     Create a generator that returns batches of size
@@ -583,7 +582,6 @@ def process_single(net, start, seq_size, global_lower, beat_resolution=2):
 
 # Class for the model 
 
-# Declaring the model
 class NoteRNN(nn.Module):
     
     """
