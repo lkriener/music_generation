@@ -241,22 +241,22 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
     #  create model
     if CONTINUE_TRAIN or GENERATE_ONLY:
         print("Loading model...")
-        model = models.create_pytorch_autoencoder_model(input_shape=y_shape[1:],
-                                                        latent_space_size=LATENT_SPACE_SIZE,
-                                                        dropout_rate=DROPOUT_RATE,
-                                                        max_windows=MAX_WINDOWS,
-                                                        batchnorm_momentum=BATCHNORM_MOMENTUM)
+        model = models.create_pytorch_double_autoencoder_model(input_shape=y_shape[1:],
+                                                               latent_space_size=LATENT_SPACE_SIZE,
+                                                               dropout_rate=DROPOUT_RATE,
+                                                               max_windows=MAX_WINDOWS,
+                                                               batchnorm_momentum=BATCHNORM_MOMENTUM)
         # saving models (https://pytorch.org/tutorials/beginner/saving_loading_models.html)
         model['encoder'].load_state_dict(torch.load(BASE_FOLDER + 'results/history/encoder.pkl'))
         model['decoder'].load_state_dict(torch.load(BASE_FOLDER + 'results/history/decoder.pkl'))
     else:
         print("Building model...")
 
-        model = models.create_pytorch_autoencoder_model(input_shape=y_shape[1:],
-                                                        latent_space_size=LATENT_SPACE_SIZE,
-                                                        dropout_rate=DROPOUT_RATE,
-                                                        max_windows=MAX_WINDOWS,
-                                                        batchnorm_momentum=BATCHNORM_MOMENTUM)
+        model = models.create_pytorch_double_autoencoder_model(input_shape=y_shape[1:],
+                                                               latent_space_size=LATENT_SPACE_SIZE,
+                                                               dropout_rate=DROPOUT_RATE,
+                                                               max_windows=MAX_WINDOWS,
+                                                               batchnorm_momentum=BATCHNORM_MOMENTUM)
 
     #  train
     print("Referencing sub-models...")

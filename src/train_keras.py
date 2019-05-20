@@ -40,6 +40,7 @@ WRITE_HISTORY = True
 NUM_RAND_SONGS = 10
 
 # network params
+USE_DOUBLE_AUTOENCODER = False
 DROPOUT_RATE = 0.1
 BATCHNORM_MOMENTUM = 0.9  # weighted normalization with the past
 USE_VAE = False
@@ -191,7 +192,7 @@ def generate_normalized_random_songs(y_orig, encoder, decoder, random_vectors, w
     plt.savefig(write_dir + 'latent_stds.png')
 
 
-def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/lengths.npy', epochs_qty=EPOCHS_QTY, learning_rate=LEARNING_RATE):
+def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/lengths.npy', use_double_autoencoder=True, epochs_qty=EPOCHS_QTY, learning_rate=LEARNING_RATE):
     """
     Train model.
     :return:
@@ -252,13 +253,22 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
     else:
         print("Building model...")
 
-        model = models.create_keras_autoencoder_model(input_shape=y_shape[1:],
-                                                      latent_space_size=LATENT_SPACE_SIZE,
-                                                      dropout_rate=DROPOUT_RATE,
-                                                      max_windows=MAX_WINDOWS,
-                                                      batchnorm_momentum=BATCHNORM_MOMENTUM,
-                                                      use_vae=USE_VAE,
-                                                      vae_b1=VAE_B1)
+        if USE_DOUBLE_AUTOENCODER:
+            model = models.create_keras_double_autoencoder_model(input_shape=y_shape[1:],
+                                                                 latent_space_size=LATENT_SPACE_SIZE,
+                                                                 dropout_rate=DROPOUT_RATE,
+                                                                 max_windows=MAX_WINDOWS,
+                                                                 batchnorm_momentum=BATCHNORM_MOMENTUM,
+                                                                 use_vae=USE_VAE,
+                                                                 vae_b1=VAE_B1)
+        else:
+            model = models.create_keras_autoencoder_model(input_shape=y_shape[1:],
+                                                          latent_space_size=LATENT_SPACE_SIZE,
+                                                          dropout_rate=DROPOUT_RATE,
+                                                          max_windows=MAX_WINDOWS,
+                                                          batchnorm_momentum=BATCHNORM_MOMENTUM,
+                                                          use_vae=USE_VAE,
+                                                          vae_b1=VAE_B1)
 
         if USE_VAE:
             model.compile(optimizer=Adam(lr=learning_rate), loss=vae_loss)
@@ -347,6 +357,7 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
 if __name__ == "__main__":
     # configure parser and parse arguments
     parser = argparse.ArgumentParser(description='Train to reconstruct midi in autoencoder.')
+    parser.add_argument('--use_double_autoencoder', default=USE_DOUBLE_AUTOENCODER, action='store_true', help='Double autoencoder or simple autoencoder.')
     parser.add_argument('--samples_path', default='data/interim/samples.npy', type=str, help='Path to samples numpy array.')
     parser.add_argument('--lengths_path', default='data/interim/lengths.npy', type=str, help='Path to sample lengths numpy array.')
     parser.add_argument('--epochs_qty', default=EPOCHS_QTY, type=int, help='The number of epochs to be trained.')
@@ -355,8 +366,9 @@ if __name__ == "__main__":
     BASE_FOLDER = '../'
 
     args = parser.parse_args()
-    epochs_qty = args.epochs_qty
-    learning_rate = args.learning_rate
     samples_path = args.samples_path
     lengths_path = args.lengths_path
-    train(samples_path, lengths_path, epochs_qty, learning_rate)
+    use_double_autoencoder = args.use_double_autoencoder
+    epochs_qty = args.epochs_qty
+    learning_rate = args.learning_rate
+    train(samples_path, lengths_path, use_double_autoencoder, epochs_qty, learning_rate)
