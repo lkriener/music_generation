@@ -31,7 +31,8 @@ from keras.optimizers import Adam, RMSprop
 
 BASE_FOLDER = './'
 EPOCHS_QTY = 2000
-EPOCHS_TO_SAVE = [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200, 250, 300, 350, 400, 450]
+EPOCHS_TO_SAVE_PCA_STATS = [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200, 250, 300, 350, 400, 450]
+EPOCHS_TO_SAVE_MODEL = []
 LEARNING_RATE = 0.001  # learning rate
 CONTINUE_TRAIN = False
 GENERATE_ONLY = False
@@ -192,7 +193,7 @@ def generate_normalized_random_songs(y_orig, encoder, decoder, random_vectors, w
     plt.savefig(write_dir + 'latent_stds.png')
 
 
-def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/lengths.npy', use_double_autoencoder=True, epochs_qty=EPOCHS_QTY, learning_rate=LEARNING_RATE):
+def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/lengths.npy', use_double_autoencoder=USE_DOUBLE_AUTOENCODER, epochs_qty=EPOCHS_QTY, learning_rate=LEARNING_RATE):
     """
     Train model.
     :return:
@@ -253,7 +254,7 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
     else:
         print("Building model...")
 
-        if USE_DOUBLE_AUTOENCODER:
+        if use_double_autoencoder:
             model = models.create_keras_double_autoencoder_model(input_shape=y_shape[1:],
                                                                  latent_space_size=LATENT_SPACE_SIZE,
                                                                  dropout_rate=DROPOUT_RATE,
@@ -328,9 +329,24 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
         else:
             plot_losses(train_loss, BASE_FOLDER + 'results/losses.png', True)
 
-        # save model periodically
+        # save model periodically either to not lose the last model or for explicitly keeping the state of a certain epoch
         save_epoch = epoch + 1
-        if save_epoch in EPOCHS_TO_SAVE or (save_epoch % 100 == 0) or save_epoch == epochs_qty:
+        store_stats = False
+        if save_epoch in EPOCHS_TO_SAVE_MODEL or (save_epoch % 100 == 0) or save_epoch == epochs_qty:
+            write_dir = ''
+            if WRITE_HISTORY:
+                # Create folder to save models into
+                write_dir += BASE_FOLDER + 'results/history/e' + str(save_epoch)
+                if not os.path.exists(write_dir):
+                    os.makedirs(write_dir)
+                write_dir += '/'
+                model.save(BASE_FOLDER + write_dir + 'model.h5')
+
+                store_stats = True
+
+                print("...Saved model separately to keep current state.")
+
+        if save_epoch in EPOCHS_TO_SAVE_PCA_STATS or (save_epoch % 100 == 0) or save_epoch == epochs_qty or store_stats:
             write_dir = ''
             if WRITE_HISTORY:
                 # Create folder to save models into
@@ -342,7 +358,7 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
             else:
                 model.save(BASE_FOLDER + 'results/model.h5')
 
-            print("...Saved.")
+            print("...Saved PCA statistics and last model.")
 
             y_song = model.predict(y_test_song, batch_size=BATCH_SIZE)[0]
 
@@ -352,6 +368,8 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
             generate_normalized_random_songs(y_orig, encoder, decoder, random_vectors, write_dir)
 
     print("...Done.")
+
+    return model, train_loss
 
 
 if __name__ == "__main__":

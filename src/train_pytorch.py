@@ -31,7 +31,8 @@ print('with cuda support:', cuda_available)  # to know if it is available
 
 BASE_FOLDER = './'
 EPOCHS_QTY = 2000
-EPOCHS_TO_SAVE = []  # [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200, 250, 300, 350, 400, 450]
+EPOCHS_TO_SAVE_PCA_STATS = []  # [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200, 250, 300, 350, 400, 450]
+EPOCHS_TO_SAVE_MODEL = []
 LEARNING_RATE = 0.001  # learning rate
 CONTINUE_TRAIN = False
 GENERATE_ONLY = False
@@ -341,9 +342,25 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
         else:
             plot_losses(train_loss, BASE_FOLDER + 'results/losses.png', True)
 
-        # save model periodically
+        # save model periodically either to not lose the last model or for explicitly keeping the state of a certain epoch
         save_epoch = epoch + 1
-        if save_epoch in EPOCHS_TO_SAVE or (save_epoch % 100 == 0) or save_epoch == epochs_qty:
+        store_stats = False
+        if save_epoch in EPOCHS_TO_SAVE_MODEL or (save_epoch % 100 == 0) or save_epoch == epochs_qty:
+            write_dir = ''
+            if WRITE_HISTORY:
+                # Create folder to save models into
+                write_dir += BASE_FOLDER + 'results/history/e' + str(save_epoch)
+                if not os.path.exists(write_dir):
+                    os.makedirs(write_dir)
+                write_dir += '/'
+                torch.save(encoder.state_dict(), BASE_FOLDER + write_dir +'encoder.pkl')
+                torch.save(decoder.state_dict(), BASE_FOLDER + write_dir + 'decoder.pkl')
+
+                store_stats = True
+
+                print("...Saved model separately to keep current state.")
+
+        if save_epoch in EPOCHS_TO_SAVE_PCA_STATS or (save_epoch % 100 == 0) or save_epoch == epochs_qty or store_stats:
             write_dir = ''
             if WRITE_HISTORY:
                 # Create folder to save models into
@@ -357,7 +374,7 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
                 torch.save(encoder.state_dict(), BASE_FOLDER + 'results/encoder.pkl')
                 torch.save(decoder.state_dict(), BASE_FOLDER + 'results/decoder.pkl')
 
-            print("...Saved.")
+            print("...Saved PCA statistics and last model.")
 
             encoder.eval()
             decoder.eval()
@@ -369,6 +386,8 @@ def train(samples_path='data/interim/samples.npy', lengths_path='data/interim/le
             generate_normalized_random_songs(y_orig_pt, encoder, decoder, random_vectors, write_dir)
 
     print("...Done.")
+
+    return model, train_loss
 
 
 if __name__ == "__main__":

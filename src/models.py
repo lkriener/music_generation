@@ -120,7 +120,7 @@ def create_keras_autoencoder_model(input_shape, latent_space_size, dropout_rate,
     :return:
     """
     from keras import backend as K
-    from keras.layers import Input, Dense, Activation, Dropout, Flatten, Reshape, TimeDistributed, Lambda
+    from keras.layers import Input, Dense, Activation, Dropout, Flatten, Reshape, Lambda
     from keras.layers.normalization import BatchNormalization
     from keras.models import Model
 
