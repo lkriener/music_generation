@@ -1,5 +1,5 @@
 # neural networks
-numpy==1.14.3  # data representation
+numpy==1.22.0  # data representation
 torch==1.0.1  # neural network framework
 keras==2.2.4  # neural network framework
 
